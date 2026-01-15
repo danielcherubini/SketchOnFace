@@ -2,13 +2,11 @@
 
 import adsk.core
 import adsk.fusion
-from typing import List
 
 from .coordinate_mapper import MappedSequence
 
 
-def generate(mapped_sequences: List[MappedSequence],
-             app: adsk.core.Application) -> adsk.fusion.Sketch:
+def generate(mapped_sequences, app):
     """
     Generate 3D sketch curves from mapped point sequences.
 
@@ -52,14 +50,12 @@ def generate(mapped_sequences: List[MappedSequence],
     return sketch
 
 
-def _create_point(sketch: adsk.fusion.Sketch,
-                  point: adsk.core.Point3D):
+def _create_point(sketch, point):
     """Create a sketch point."""
     sketch.sketchPoints.add(point)
 
 
-def _create_line_or_arc(sketch: adsk.fusion.Sketch,
-                        points: List[adsk.core.Point3D]):
+def _create_line_or_arc(sketch, points):
     """
     Create a line or arc from two points.
     For wrapped geometry, a straight line becomes an arc on curved surfaces.
@@ -78,9 +74,7 @@ def _create_line_or_arc(sketch: adsk.fusion.Sketch,
     sketch.sketchCurves.sketchLines.addByTwoPoints(start, end)
 
 
-def _create_spline(sketch: adsk.fusion.Sketch,
-                   points: List[adsk.core.Point3D],
-                   is_closed: bool):
+def _create_spline(sketch, points, is_closed):
     """Create a fitted spline through the points."""
     if len(points) < 2:
         return

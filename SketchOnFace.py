@@ -5,14 +5,19 @@ import adsk.core
 import adsk.fusion
 import traceback
 
-from .commands import wrap_command
+wrap_command = None
+
+try:
+    from .commands import wrap_command
+except Exception as e:
+    # Import error will be shown when trying to run
+    pass
 
 # Global references
 app = None
 ui = None
 
 ADDIN_NAME = 'SketchOnFace'
-ADDIN_PANEL_ID = 'SolidScriptsAddinsPanel'
 
 
 def run(context):
@@ -22,8 +27,10 @@ def run(context):
         app = adsk.core.Application.get()
         ui = app.userInterface
 
-        # Initialize the wrap command
-        wrap_command.start(app, ui)
+        if wrap_command:
+            wrap_command.start(app, ui)
+        else:
+            ui.messageBox("SketchOnFace: Failed to load modules. Check the Text Commands window for errors.")
 
     except:
         if ui:
@@ -34,8 +41,8 @@ def stop(context):
     """Called when add-in is stopped."""
     global app, ui
     try:
-        # Clean up the wrap command
-        wrap_command.stop(ui)
+        if wrap_command:
+            wrap_command.stop(ui)
 
         app = None
         ui = None

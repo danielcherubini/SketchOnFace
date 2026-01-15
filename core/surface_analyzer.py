@@ -2,29 +2,28 @@
 
 import adsk.core
 import adsk.fusion
-from dataclasses import dataclass
-from typing import Optional, Tuple
 
 
-@dataclass
 class SurfaceInfo:
     """Container for analyzed surface properties."""
-    face: adsk.fusion.BRepFace
-    evaluator: adsk.core.SurfaceEvaluator
-    u_min: float
-    u_max: float
-    v_min: float
-    v_max: float
-    ref_edge: adsk.fusion.BRepEdge
-    ref_edge_evaluator: adsk.core.CurveEvaluator3D
-    ref_edge_length: float
-    ref_edge_param_start: float
-    ref_edge_param_end: float
-    surface_height: float  # Physical height in V direction
+    def __init__(self, face, evaluator, u_min, u_max, v_min, v_max,
+                 ref_edge, ref_edge_evaluator, ref_edge_length,
+                 ref_edge_param_start, ref_edge_param_end, surface_height):
+        self.face = face
+        self.evaluator = evaluator
+        self.u_min = u_min
+        self.u_max = u_max
+        self.v_min = v_min
+        self.v_max = v_max
+        self.ref_edge = ref_edge
+        self.ref_edge_evaluator = ref_edge_evaluator
+        self.ref_edge_length = ref_edge_length
+        self.ref_edge_param_start = ref_edge_param_start
+        self.ref_edge_param_end = ref_edge_param_end
+        self.surface_height = surface_height  # Physical height in V direction
 
 
-def analyze(face: adsk.fusion.BRepFace,
-            ref_edge: Optional[adsk.fusion.BRepEdge] = None) -> SurfaceInfo:
+def analyze(face, ref_edge=None):
     """
     Analyze a surface face and extract properties needed for coordinate mapping.
 
@@ -73,7 +72,7 @@ def analyze(face: adsk.fusion.BRepFace,
     )
 
 
-def _find_longest_edge(face: adsk.fusion.BRepFace) -> adsk.fusion.BRepEdge:
+def _find_longest_edge(face):
     """Find the longest edge of the face for reference direction."""
     longest_edge = None
     max_length = 0.0
@@ -90,11 +89,7 @@ def _find_longest_edge(face: adsk.fusion.BRepFace) -> adsk.fusion.BRepEdge:
     return longest_edge
 
 
-def _calculate_surface_height(evaluator: adsk.core.SurfaceEvaluator,
-                               u: float,
-                               v_min: float,
-                               v_max: float,
-                               samples: int = 10) -> float:
+def _calculate_surface_height(evaluator, u, v_min, v_max, samples=10):
     """
     Calculate physical height of surface along V direction.
     Uses sampling to handle curved surfaces.

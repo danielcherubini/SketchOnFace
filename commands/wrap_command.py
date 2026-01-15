@@ -4,10 +4,17 @@ import adsk.core
 import adsk.fusion
 import traceback
 
-from ..core import surface_analyzer
-from ..core import sketch_parser
-from ..core import coordinate_mapper
-from ..core import curve_generator
+print("SketchOnFace: Loading wrap_command module...")
+
+try:
+    from ..core import surface_analyzer
+    from ..core import sketch_parser
+    from ..core import coordinate_mapper
+    from ..core import curve_generator
+    print("SketchOnFace: Core modules imported successfully")
+except Exception as e:
+    print(f"SketchOnFace: Failed to import core modules: {e}")
+    print(traceback.format_exc())
 
 # Command identity
 COMMAND_ID = 'SketchOnFaceCommand'
@@ -46,6 +53,10 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             on_execute = ExecuteHandler()
             cmd.execute.add(on_execute)
             handlers.append(on_execute)
+
+            on_preview = PreviewHandler()
+            cmd.executePreview.add(on_preview)
+            handlers.append(on_preview)
 
             on_validate = ValidateInputsHandler()
             cmd.validateInputs.add(on_validate)
@@ -133,7 +144,7 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
         super().__init__()
 
-    def notify(self, args: adsk.core.CommandEventArgs):
+    def notify(self, args):
         try:
             cmd = args.command
             inputs = cmd.commandInputs
@@ -162,14 +173,8 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             offset = offset_input.value
 
             # === CORE WORKFLOW ===
-
-            # 1. Analyze surface
             surface_info = surface_analyzer.analyze(face, ref_edge)
-
-            # 2. Parse sketch curves into point sequences
             point_sequences = sketch_parser.parse(sketch_curves)
-
-            # 3. Map 2D points to 3D surface coordinates
             mapped_sequences = coordinate_mapper.map_to_surface(
                 point_sequences,
                 surface_info,
@@ -177,13 +182,67 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
                 scale_y,
                 offset
             )
-
-            # 4. Generate output curves
             curve_generator.generate(mapped_sequences, _app)
 
         except:
             if _ui:
                 _ui.messageBox(f'Execution failed:\n{traceback.format_exc()}')
+
+
+class PreviewHandler(adsk.core.CommandEventHandler):
+    """Handles preview - shows temporary geometry before commit."""
+
+    def __init__(self):
+        super().__init__()
+
+    def notify(self, args):
+        try:
+            cmd = args.command
+            inputs = cmd.commandInputs
+
+            face_input = inputs.itemById(INPUT_FACE)
+            sketch_input = inputs.itemById(INPUT_SKETCH)
+            edge_input = inputs.itemById(INPUT_EDGE)
+            scale_x_input = inputs.itemById(INPUT_SCALE_X)
+            scale_y_input = inputs.itemById(INPUT_SCALE_Y)
+            offset_input = inputs.itemById(INPUT_OFFSET)
+
+            # Check we have required inputs
+            if face_input.selectionCount < 1 or sketch_input.selectionCount < 1:
+                return
+
+            face = face_input.selection(0).entity
+
+            sketch_curves = []
+            for i in range(sketch_input.selectionCount):
+                sketch_curves.append(sketch_input.selection(i).entity)
+
+            ref_edge = None
+            if edge_input.selectionCount > 0:
+                ref_edge = edge_input.selection(0).entity
+
+            scale_x = scale_x_input.value
+            scale_y = scale_y_input.value
+            offset = offset_input.value
+
+            # Run the same workflow as execute
+            surface_info = surface_analyzer.analyze(face, ref_edge)
+            point_sequences = sketch_parser.parse(sketch_curves)
+            mapped_sequences = coordinate_mapper.map_to_surface(
+                point_sequences,
+                surface_info,
+                scale_x,
+                scale_y,
+                offset
+            )
+            curve_generator.generate(mapped_sequences, _app)
+
+            # Mark as valid preview so Fusion shows it
+            args.isValidResult = True
+
+        except:
+            # Silent fail for preview - don't show error dialogs
+            args.isValidResult = False
 
 
 class ValidateInputsHandler(adsk.core.ValidateInputsEventHandler):
@@ -192,7 +251,7 @@ class ValidateInputsHandler(adsk.core.ValidateInputsEventHandler):
     def __init__(self):
         super().__init__()
 
-    def notify(self, args: adsk.core.ValidateInputsEventArgs):
+    def notify(self, args):
         try:
             cmd = args.firingEvent.sender
             inputs = cmd.commandInputs
@@ -227,9 +286,10 @@ class CommandDestroyHandler(adsk.core.CommandEventHandler):
     def __init__(self):
         super().__init__()
 
-    def notify(self, args: adsk.core.CommandEventArgs):
-        global handlers
-        handlers = []
+    def notify(self, args):
+        # Don't clear handlers here - it removes the CommandCreatedHandler
+        # which prevents the command from being run again
+        pass
 
 
 def start(app: adsk.core.Application, ui: adsk.core.UserInterface):

@@ -2,19 +2,18 @@
 
 import adsk.core
 import adsk.fusion
-from dataclasses import dataclass
-from typing import List, Tuple
+import math
 
 
-@dataclass
 class PointSequence:
     """A sequence of 2D points representing a curve."""
-    points: List[Tuple[float, float]]  # List of (x, y) tuples
-    is_closed: bool
-    source_type: str  # Original geometry type for reference
+    def __init__(self, points, is_closed, source_type):
+        self.points = points  # List of (x, y) tuples
+        self.is_closed = is_closed
+        self.source_type = source_type  # Original geometry type for reference
 
 
-def parse(sketch_curves: List) -> List[PointSequence]:
+def parse(sketch_curves):
     """
     Parse sketch entities into point sequences.
 
@@ -51,7 +50,7 @@ def parse(sketch_curves: List) -> List[PointSequence]:
     return sequences
 
 
-def _parse_fitted_spline(spline: adsk.fusion.SketchFittedSpline) -> PointSequence:
+def _parse_fitted_spline(spline):
     """Extract fit points from a fitted spline."""
     points = []
     fit_points = spline.fitPoints
@@ -60,14 +59,10 @@ def _parse_fitted_spline(spline: adsk.fusion.SketchFittedSpline) -> PointSequenc
         pt = fit_points.item(i).geometry
         points.append((pt.x, pt.y))
 
-    return PointSequence(
-        points=points,
-        is_closed=spline.isClosed,
-        source_type='SketchFittedSpline'
-    )
+    return PointSequence(points, spline.isClosed, 'SketchFittedSpline')
 
 
-def _parse_fixed_spline(spline: adsk.fusion.SketchFixedSpline) -> PointSequence:
+def _parse_fixed_spline(spline):
     """Sample points along a fixed spline."""
     points = []
     geometry = spline.geometry  # NurbsCurve3D
@@ -84,26 +79,26 @@ def _parse_fixed_spline(spline: adsk.fusion.SketchFixedSpline) -> PointSequence:
         _, pt = evaluator.getPointAtParameter(param)
         points.append((pt.x, pt.y))
 
-    return PointSequence(
-        points=points,
-        is_closed=spline.isClosed,
-        source_type='SketchFixedSpline'
-    )
+    return PointSequence(points, spline.isClosed, 'SketchFixedSpline')
 
 
-def _parse_line(line: adsk.fusion.SketchLine) -> PointSequence:
-    """Extract start and end points from a line."""
+def _parse_line(line, num_samples=20):
+    """Sample points along a line for proper surface wrapping."""
     start = line.startSketchPoint.geometry
     end = line.endSketchPoint.geometry
 
-    return PointSequence(
-        points=[(start.x, start.y), (end.x, end.y)],
-        is_closed=False,
-        source_type='SketchLine'
-    )
+    # Sample multiple points along the line so it wraps correctly
+    points = []
+    for i in range(num_samples + 1):
+        t = i / num_samples
+        x = start.x + t * (end.x - start.x)
+        y = start.y + t * (end.y - start.y)
+        points.append((x, y))
+
+    return PointSequence(points, False, 'SketchLine')
 
 
-def _parse_arc(arc: adsk.fusion.SketchArc) -> PointSequence:
+def _parse_arc(arc):
     """Sample points along an arc."""
     points = []
     geometry = arc.geometry  # Arc3D
@@ -120,20 +115,15 @@ def _parse_arc(arc: adsk.fusion.SketchArc) -> PointSequence:
         _, pt = evaluator.getPointAtParameter(param)
         points.append((pt.x, pt.y))
 
-    return PointSequence(
-        points=points,
-        is_closed=False,
-        source_type='SketchArc'
-    )
+    return PointSequence(points, False, 'SketchArc')
 
 
-def _parse_circle(circle: adsk.fusion.SketchCircle) -> PointSequence:
+def _parse_circle(circle):
     """Sample points around a circle."""
     points = []
     center = circle.centerSketchPoint.geometry
     radius = circle.radius
 
-    import math
     num_samples = 36  # Every 10 degrees
 
     for i in range(num_samples):
@@ -142,19 +132,11 @@ def _parse_circle(circle: adsk.fusion.SketchCircle) -> PointSequence:
         y = center.y + radius * math.sin(angle)
         points.append((x, y))
 
-    return PointSequence(
-        points=points,
-        is_closed=True,
-        source_type='SketchCircle'
-    )
+    return PointSequence(points, True, 'SketchCircle')
 
 
-def _parse_point(point: adsk.fusion.SketchPoint) -> PointSequence:
+def _parse_point(point):
     """Extract a single point."""
     pt = point.geometry
 
-    return PointSequence(
-        points=[(pt.x, pt.y)],
-        is_closed=False,
-        source_type='SketchPoint'
-    )
+    return PointSequence([(pt.x, pt.y)], False, 'SketchPoint')
