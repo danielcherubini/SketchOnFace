@@ -6,6 +6,7 @@ description = "Fusion 360 add-in that wraps 2D sketch curves onto arbitrary 3D s
 
 [dependency-groups]
 dev = [
+    "adsk>=2.0.12157",
     "ruff>=0.9.10",
 ]
 
@@ -59,6 +60,9 @@ ignore = [
     "SIM108",  # Use ternary (explicit if-else often clearer)
     "D417",    # Missing argument description in docstring
     "E501",    # Line too long (handled by formatter, many false positives in Fusion)
+    "PLR0912", # Too many branches (Fusion command handlers can be complex)
+    "PLR0915", # Too many statements (Fusion command handlers can be complex)
+    "PERF203", # try-except in loop (needed for Fusion API safety)
 ]
 fixable = ["ALL"]
 

@@ -14,7 +14,8 @@ class MappedSequence:
 
 
 def map_to_surface(
-    point_sequences, surface_info, scale_x=1.0, scale_y=1.0, offset=0.0, debug_ui=None
+    point_sequences, surface_info, scale_x=1.0, scale_y=1.0,
+    offset_x=0.0, offset_y=0.0, offset_normal=0.0, debug_ui=None
 ):
     """
     Map 2D point sequences onto a 3D surface.
@@ -24,7 +25,9 @@ def map_to_surface(
         surface_info: Surface analysis results
         scale_x: Scale factor for X (wrap) direction
         scale_y: Scale factor for Y (height) direction
-        offset: Distance to offset from surface along normal
+        offset_x: Position offset in X (wrap) direction (0-1, where 1 = full circumference)
+        offset_y: Position offset in Y (height) direction (0-1, where 1 = full height)
+        offset_normal: Distance to offset from surface along normal
 
     Returns:
         List of MappedSequence with 3D points.
@@ -44,6 +47,7 @@ def map_to_surface(
 
     for seq in point_sequences:
         points_3d = []
+        prev_wrap_param = None  # Track previous wrap parameter to detect seam
 
         if debug_ui:
             debug_ui.messageBox(
@@ -51,18 +55,25 @@ def map_to_surface(
             )
 
         for x, y in seq.points:
-            # Apply scaling
-            x_scaled = (x - x_min) * scale_x
-            y_scaled = (y - y_min) * scale_y
+            # Normalize to [0, 1] then apply scaling
+            x_normalized = (x - x_min) / x_range if x_range > 0 else 0.0
+            y_normalized = (y - y_min) / y_range if y_range > 0 else 0.0
 
-            # Map to surface
-            point_3d = _map_point(
+            # Scale affects how much of the surface the sketch covers
+            # scale=1 means sketch maps to full surface, scale=0.5 means half, etc.
+            # Offset shifts the position (0-1 range, where 1 = full surface)
+            x_scaled = x_normalized * scale_x + offset_x
+            y_scaled = y_normalized * scale_y + offset_y
+
+            # Map to surface (pass 1.0 as total since we pre-normalized and scaled)
+            point_3d, prev_wrap_param = _map_point(
                 x_scaled,
                 y_scaled,
                 surface_info,
-                x_range * scale_x,
-                y_range * scale_y,
-                offset,
+                1.0,  # Normalized total width
+                1.0,  # Normalized total height
+                offset_normal,
+                prev_wrap_param,
                 debug_ui,
             )
 
@@ -94,7 +105,9 @@ def _get_bounds(sequences):
     return min(x_coords), max(x_coords), min(y_coords), max(y_coords)
 
 
-def _map_point(x, y, surface_info, total_width, total_height, offset, debug_ui=None):
+def _map_point(
+    x, y, surface_info, total_width, total_height, offset, prev_wrap_param, debug_ui=None
+):
     """
     Map a single 2D point to 3D surface coordinates.
 
@@ -103,7 +116,12 @@ def _map_point(x, y, surface_info, total_width, total_height, offset, debug_ui=N
 
     Note: Surface UV parameterization varies - V might be circumference, U might be height.
     We detect this by checking which parameter range matches the edge length.
+
+    Returns:
+        Tuple of (Point3D, wrap_param) where wrap_param is used to detect seam crossings.
     """
+    import math
+
     # Calculate arc length for this X position
     # Normalize x to [0, edge_length]
     if total_width > 0:
@@ -143,7 +161,7 @@ def _map_point(x, y, surface_info, total_width, total_height, offset, debug_ui=N
     success, uv_at_edge = surf_eval.getParameterAtPoint(edge_point)
 
     if not success:
-        return None
+        return None, prev_wrap_param
 
     # Determine which surface parameter (U or V) corresponds to the wrap direction
     # by checking which one varies along the edge
@@ -162,17 +180,40 @@ def _map_point(x, y, surface_info, total_width, total_height, offset, debug_ui=N
 
     # If V range is close to 2*pi (~6.28), V is circumference, U is height
     # Otherwise assume U is circumference, V is height
-    import math
-
     if abs(v_range - 2 * math.pi) < 1.0:
         # V is circumference (wrap), U is height
-        # Use V from edge mapping (wrap position), map Y to U (height)
+        wrap_param = uv_at_edge.y
+        wrap_range = v_range
+        wrap_min = surface_info.v_min
+
+        # Detect and fix seam discontinuity
+        if prev_wrap_param is not None:
+            # If wrap_param jumped backward by more than half the range, we crossed the seam
+            if prev_wrap_param - wrap_param > wrap_range / 2:
+                wrap_param += wrap_range
+            elif wrap_param - prev_wrap_param > wrap_range / 2:
+                wrap_param -= wrap_range
+
         u_param = surface_info.u_min + height_ratio * u_range
-        v_param = uv_at_edge.y  # V from edge = wrap position
+        v_param = wrap_param
+        current_wrap_param = wrap_param
     else:
         # Standard: U is circumference (wrap), V is height
-        u_param = uv_at_edge.x  # U from edge = wrap position
+        wrap_param = uv_at_edge.x
+        wrap_range = u_range
+        wrap_min = surface_info.u_min
+
+        # Detect and fix seam discontinuity
+        if prev_wrap_param is not None:
+            # If wrap_param jumped backward by more than half the range, we crossed the seam
+            if prev_wrap_param - wrap_param > wrap_range / 2:
+                wrap_param += wrap_range
+            elif wrap_param - prev_wrap_param > wrap_range / 2:
+                wrap_param -= wrap_range
+
+        u_param = wrap_param
         v_param = surface_info.v_min + height_ratio * v_range
+        current_wrap_param = wrap_param
 
     uv_mapped = adsk.core.Point2D.create(u_param, v_param)
 
@@ -180,7 +221,7 @@ def _map_point(x, y, surface_info, total_width, total_height, offset, debug_ui=N
     success, point_3d = surf_eval.getPointAtParameter(uv_mapped)
 
     if not success:
-        return None
+        return None, current_wrap_param
 
     # Apply offset along surface normal if specified
     if offset != 0.0:
@@ -192,4 +233,4 @@ def _map_point(x, y, surface_info, total_width, total_height, offset, debug_ui=N
                 point_3d.z + normal.z * offset,
             )
 
-    return point_3d
+    return point_3d, current_wrap_param

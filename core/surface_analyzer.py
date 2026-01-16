@@ -64,7 +64,9 @@ def analyze(face, ref_edge=None):
     # Get edge evaluator and properties
     ref_edge_evaluator = ref_edge.evaluator
     _, param_start, param_end = ref_edge_evaluator.getParameterExtents()
-    _, ref_edge_length = ref_edge_evaluator.getLengthAtParameter(param_start, param_end)
+
+    # Use edge.length property for more accurate length (in cm)
+    ref_edge_length = ref_edge.length
 
     # Calculate physical surface height
     # Sample at u_min edge from v_min to v_max
@@ -92,9 +94,8 @@ def _find_longest_edge(face):
     max_length = 0.0
 
     for edge in face.edges:
-        evaluator = edge.evaluator
-        _, param_start, param_end = evaluator.getParameterExtents()
-        _, length = evaluator.getLengthAtParameter(param_start, param_end)
+        # Use edge.length property for accurate length
+        length = edge.length
 
         if length > max_length:
             max_length = length

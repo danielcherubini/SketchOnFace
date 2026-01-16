@@ -32,7 +32,9 @@ INPUT_SKETCH = COMMAND_ID + "_sketch"
 INPUT_EDGE = COMMAND_ID + "_edge"
 INPUT_SCALE_X = COMMAND_ID + "_scaleX"
 INPUT_SCALE_Y = COMMAND_ID + "_scaleY"
-INPUT_OFFSET = COMMAND_ID + "_offset"
+INPUT_OFFSET_X = COMMAND_ID + "_offsetX"
+INPUT_OFFSET_Y = COMMAND_ID + "_offsetY"
+INPUT_OFFSET_NORMAL = COMMAND_ID + "_offsetNormal"
 
 # Global event handlers (prevent garbage collection)
 handlers = []
@@ -40,6 +42,8 @@ handlers = []
 # Global app/ui references
 _app = None
 _ui = None
+_custom_feature_def = None
+_preview_sketch = None  # Track preview sketch for cleanup
 
 
 class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -116,9 +120,19 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 INPUT_SCALE_Y, "Y Scale", "", 0.01, 100.0, 0.1, 1.0
             )
 
-            # Surface offset
+            # X Offset (wrap direction, 0-1 where 1 = full circumference)
             inputs.addFloatSpinnerCommandInput(
-                INPUT_OFFSET, "Surface Offset", "cm", -10.0, 10.0, 0.01, 0.0
+                INPUT_OFFSET_X, "X Offset", "", -1.0, 1.0, 0.05, 0.0
+            )
+
+            # Y Offset (height direction, 0-1 where 1 = full height)
+            inputs.addFloatSpinnerCommandInput(
+                INPUT_OFFSET_Y, "Y Offset", "", -1.0, 1.0, 0.05, 0.0
+            )
+
+            # Surface normal offset (distance from surface)
+            inputs.addFloatSpinnerCommandInput(
+                INPUT_OFFSET_NORMAL, "Surface Offset", "cm", -10.0, 10.0, 0.01, 0.0
             )
 
         except:
@@ -133,7 +147,16 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
         super().__init__()
 
     def notify(self, args):
+        global _preview_sketch
         try:
+            # Clean up preview sketch before creating the CustomFeature
+            if _preview_sketch:
+                try:
+                    _preview_sketch.deleteMe()
+                except:
+                    pass
+                _preview_sketch = None
+
             cmd = args.command
             inputs = cmd.commandInputs
 
@@ -143,7 +166,9 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             edge_input = inputs.itemById(INPUT_EDGE)
             scale_x_input = inputs.itemById(INPUT_SCALE_X)
             scale_y_input = inputs.itemById(INPUT_SCALE_Y)
-            offset_input = inputs.itemById(INPUT_OFFSET)
+            offset_x_input = inputs.itemById(INPUT_OFFSET_X)
+            offset_y_input = inputs.itemById(INPUT_OFFSET_Y)
+            offset_normal_input = inputs.itemById(INPUT_OFFSET_NORMAL)
 
             # Extract selected entities
             face = face_input.selection(0).entity
@@ -158,19 +183,28 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
 
             scale_x = scale_x_input.value
             scale_y = scale_y_input.value
-            offset = offset_input.value
+            offset_x = offset_x_input.value
+            offset_y = offset_y_input.value
+            offset_normal = offset_normal_input.value
 
-            # === CORE WORKFLOW ===
-            surface_info = surface_analyzer.analyze(face, ref_edge)
-            point_sequences = sketch_parser.parse(sketch_curves)
-            mapped_sequences = coordinate_mapper.map_to_surface(
-                point_sequences, surface_info, scale_x, scale_y, offset
-            )
-            curve_generator.generate(mapped_sequences, _app)
+            # Create CustomFeature - the compute handler will create the sketch
+            if _custom_feature_def:
+                _create_custom_feature(
+                    face, sketch_curves, ref_edge, scale_x, scale_y,
+                    offset_x, offset_y, offset_normal
+                )
+            else:
+                # Fallback if CustomFeature not available - create sketch directly
+                surface_info = surface_analyzer.analyze(face, ref_edge)
+                point_sequences = sketch_parser.parse(sketch_curves)
+                mapped_sequences = coordinate_mapper.map_to_surface(
+                    point_sequences, surface_info, scale_x, scale_y,
+                    offset_x, offset_y, offset_normal
+                )
+                curve_generator.generate(mapped_sequences, _app)
 
-        except:
-            if _ui:
-                _ui.messageBox(f"Execution failed:\n{traceback.format_exc()}")
+        except Exception as e:
+            _ui.messageBox(f"Execution failed:\n{e}\n{traceback.format_exc()}")
 
 
 class PreviewHandler(adsk.core.CommandEventHandler):
@@ -180,7 +214,16 @@ class PreviewHandler(adsk.core.CommandEventHandler):
         super().__init__()
 
     def notify(self, args):
+        global _preview_sketch
         try:
+            # Clean up previous preview
+            if _preview_sketch:
+                try:
+                    _preview_sketch.deleteMe()
+                except:
+                    pass
+                _preview_sketch = None
+
             cmd = args.command
             inputs = cmd.commandInputs
 
@@ -189,10 +232,13 @@ class PreviewHandler(adsk.core.CommandEventHandler):
             edge_input = inputs.itemById(INPUT_EDGE)
             scale_x_input = inputs.itemById(INPUT_SCALE_X)
             scale_y_input = inputs.itemById(INPUT_SCALE_Y)
-            offset_input = inputs.itemById(INPUT_OFFSET)
+            offset_x_input = inputs.itemById(INPUT_OFFSET_X)
+            offset_y_input = inputs.itemById(INPUT_OFFSET_Y)
+            offset_normal_input = inputs.itemById(INPUT_OFFSET_NORMAL)
 
             # Check we have required inputs
             if face_input.selectionCount < 1 or sketch_input.selectionCount < 1:
+                args.isValidResult = False
                 return
 
             face = face_input.selection(0).entity
@@ -207,21 +253,24 @@ class PreviewHandler(adsk.core.CommandEventHandler):
 
             scale_x = scale_x_input.value
             scale_y = scale_y_input.value
-            offset = offset_input.value
+            offset_x = offset_x_input.value
+            offset_y = offset_y_input.value
+            offset_normal = offset_normal_input.value
 
-            # Run the same workflow as execute
+            # Create preview geometry
             surface_info = surface_analyzer.analyze(face, ref_edge)
             point_sequences = sketch_parser.parse(sketch_curves)
             mapped_sequences = coordinate_mapper.map_to_surface(
-                point_sequences, surface_info, scale_x, scale_y, offset
+                point_sequences, surface_info, scale_x, scale_y,
+                offset_x, offset_y, offset_normal
             )
-            curve_generator.generate(mapped_sequences, _app)
+            _preview_sketch = curve_generator.generate(mapped_sequences, _app)
 
-            # Mark as valid preview so Fusion shows it
-            args.isValidResult = True
+            # Set to False so ExecuteHandler runs and creates the CustomFeature
+            # The preview geometry is visible but won't be "committed" by Fusion
+            args.isValidResult = False
 
         except:
-            # Silent fail for preview - don't show error dialogs
             args.isValidResult = False
 
 
@@ -271,11 +320,65 @@ class CommandDestroyHandler(adsk.core.CommandEventHandler):
         pass
 
 
-def start(app: adsk.core.Application, ui: adsk.core.UserInterface):
+def _create_custom_feature(
+    face, sketch_curves, ref_edge, scale_x, scale_y, offset_x, offset_y, offset_normal
+):
+    """Create a CustomFeature - compute handler will create the sketch."""
+    try:
+        design = adsk.fusion.Design.cast(_app.activeProduct)
+        if not design:
+            return
+
+        root_comp = design.rootComponent
+
+        # Create custom feature input
+        cust_feat_input = root_comp.features.customFeatures.createInput(
+            _custom_feature_def
+        )
+
+        # Add dependencies (entities that trigger recompute when changed)
+        cust_feat_input.addDependency("face", face)
+        for i, curve in enumerate(sketch_curves):
+            cust_feat_input.addDependency(f"curve_{i}", curve)
+        if ref_edge:
+            cust_feat_input.addDependency("refEdge", ref_edge)
+
+        # Add parameters (editable values)
+        cust_feat_input.addCustomParameter(
+            "scaleX", "X Scale", adsk.core.ValueInput.createByReal(scale_x), "", True
+        )
+        cust_feat_input.addCustomParameter(
+            "scaleY", "Y Scale", adsk.core.ValueInput.createByReal(scale_y), "", True
+        )
+        cust_feat_input.addCustomParameter(
+            "offsetX", "X Offset", adsk.core.ValueInput.createByReal(offset_x), "", True
+        )
+        cust_feat_input.addCustomParameter(
+            "offsetY", "Y Offset", adsk.core.ValueInput.createByReal(offset_y), "", True
+        )
+        cust_feat_input.addCustomParameter(
+            "offsetNormal", "Surface Offset",
+            adsk.core.ValueInput.createByReal(offset_normal), "cm", True
+        )
+
+        # Create the custom feature - this triggers the compute handler
+        root_comp.features.customFeatures.add(cust_feat_input)
+
+    except Exception as e:
+        if _ui:
+            _ui.messageBox(
+                f"CustomFeature creation failed:\n{e}\n{traceback.format_exc()}"
+            )
+
+
+def start(
+    app: adsk.core.Application, ui: adsk.core.UserInterface, custom_feature_def=None
+):
     """Register the command with Fusion 360."""
-    global _app, _ui
+    global _app, _ui, _custom_feature_def
     _app = app
     _ui = ui
+    _custom_feature_def = custom_feature_def
 
     try:
         # Create command definition
@@ -306,7 +409,7 @@ def start(app: adsk.core.Application, ui: adsk.core.UserInterface):
 
 def stop(ui: adsk.core.UserInterface):
     """Unregister the command from Fusion 360."""
-    global handlers
+    global handlers, _custom_feature_def
 
     try:
         # Remove from panel
@@ -322,6 +425,7 @@ def stop(ui: adsk.core.UserInterface):
             cmd_def.deleteMe()
 
         handlers = []
+        _custom_feature_def = None
 
     except:
         if ui:
