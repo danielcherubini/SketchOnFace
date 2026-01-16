@@ -3,8 +3,6 @@
 import adsk.core
 import adsk.fusion
 
-from .coordinate_mapper import MappedSequence
-
 
 def generate(mapped_sequences, app):
     """
@@ -16,6 +14,7 @@ def generate(mapped_sequences, app):
 
     Returns:
         The created Sketch object containing the wrapped curves.
+
     """
     design = adsk.fusion.Design.cast(app.activeProduct)
     if not design:
@@ -26,7 +25,7 @@ def generate(mapped_sequences, app):
     # Create a new sketch
     # Using XY construction plane as base (sketch will contain 3D curves)
     sketch = root_comp.sketches.add(root_comp.xYConstructionPlane)
-    sketch.name = 'WrappedSketch'
+    sketch.name = "WrappedSketch"
     sketch.isComputeDeferred = True  # Defer recompute for performance
 
     try:
@@ -37,7 +36,7 @@ def generate(mapped_sequences, app):
             if len(seq.points) == 1:
                 # Single point
                 _create_point(sketch, seq.points[0])
-            elif seq.source_type == 'SketchLine' and len(seq.points) == 2:
+            elif seq.source_type == "SketchLine" and len(seq.points) == 2:
                 # Line with only 2 points - create as line or arc
                 _create_line_or_arc(sketch, seq.points)
             else:

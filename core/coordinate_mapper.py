@@ -3,19 +3,19 @@
 import adsk.core
 import adsk.fusion
 
-from .surface_analyzer import SurfaceInfo
-from .sketch_parser import PointSequence
-
 
 class MappedSequence:
     """A sequence of 3D points mapped onto a surface."""
+
     def __init__(self, points, is_closed, source_type):
         self.points = points  # List of Point3D
         self.is_closed = is_closed
         self.source_type = source_type
 
 
-def map_to_surface(point_sequences, surface_info, scale_x=1.0, scale_y=1.0, offset=0.0, debug_ui=None):
+def map_to_surface(
+    point_sequences, surface_info, scale_x=1.0, scale_y=1.0, offset=0.0, debug_ui=None
+):
     """
     Map 2D point sequences onto a 3D surface.
 
@@ -28,6 +28,7 @@ def map_to_surface(point_sequences, surface_info, scale_x=1.0, scale_y=1.0, offs
 
     Returns:
         List of MappedSequence with 3D points.
+
     """
     mapped = []
 
@@ -37,13 +38,17 @@ def map_to_surface(point_sequences, surface_info, scale_x=1.0, scale_y=1.0, offs
     y_range = y_max - y_min if y_max != y_min else 1.0
 
     if debug_ui:
-        debug_ui.messageBox(f"Bounds: x=[{x_min:.2f}, {x_max:.2f}], y=[{y_min:.2f}, {y_max:.2f}]\nRange: {x_range:.2f} x {y_range:.2f}\nEdge length: {surface_info.ref_edge_length:.2f}")
+        debug_ui.messageBox(
+            f"Bounds: x=[{x_min:.2f}, {x_max:.2f}], y=[{y_min:.2f}, {y_max:.2f}]\nRange: {x_range:.2f} x {y_range:.2f}\nEdge length: {surface_info.ref_edge_length:.2f}"
+        )
 
     for seq in point_sequences:
         points_3d = []
 
         if debug_ui:
-            debug_ui.messageBox(f"Sequence type: {seq.source_type}\nPoints: {len(seq.points)}\nFirst point: {seq.points[0] if seq.points else 'none'}")
+            debug_ui.messageBox(
+                f"Sequence type: {seq.source_type}\nPoints: {len(seq.points)}\nFirst point: {seq.points[0] if seq.points else 'none'}"
+            )
 
         for x, y in seq.points:
             # Apply scaling
@@ -58,7 +63,7 @@ def map_to_surface(point_sequences, surface_info, scale_x=1.0, scale_y=1.0, offs
                 x_range * scale_x,
                 y_range * scale_y,
                 offset,
-                debug_ui
+                debug_ui,
             )
 
             if point_3d is not None:
@@ -112,15 +117,20 @@ def _map_point(x, y, surface_info, total_width, total_height, offset, debug_ui=N
     # Use arc-length parameterization to find position along edge
     edge_eval = surface_info.ref_edge_evaluator
     success, edge_param = edge_eval.getParameterAtLength(
-        surface_info.ref_edge_param_start,
-        arc_length
+        surface_info.ref_edge_param_start, arc_length
     )
 
     if not success:
         if debug_ui:
-            debug_ui.messageBox(f"getParameterAtLength failed for arc_length={arc_length}")
+            debug_ui.messageBox(
+                f"getParameterAtLength failed for arc_length={arc_length}"
+            )
         # Fallback: linear interpolation
-        t = arc_length / surface_info.ref_edge_length if surface_info.ref_edge_length > 0 else 0
+        t = (
+            arc_length / surface_info.ref_edge_length
+            if surface_info.ref_edge_length > 0
+            else 0
+        )
         edge_param = surface_info.ref_edge_param_start + t * (
             surface_info.ref_edge_param_end - surface_info.ref_edge_param_start
         )
@@ -153,6 +163,7 @@ def _map_point(x, y, surface_info, total_width, total_height, offset, debug_ui=N
     # If V range is close to 2*pi (~6.28), V is circumference, U is height
     # Otherwise assume U is circumference, V is height
     import math
+
     if abs(v_range - 2 * math.pi) < 1.0:
         # V is circumference (wrap), U is height
         # Use V from edge mapping (wrap position), map Y to U (height)
@@ -178,7 +189,7 @@ def _map_point(x, y, surface_info, total_width, total_height, offset, debug_ui=N
             point_3d = adsk.core.Point3D.create(
                 point_3d.x + normal.x * offset,
                 point_3d.y + normal.y * offset,
-                point_3d.z + normal.z * offset
+                point_3d.z + normal.z * offset,
             )
 
     return point_3d

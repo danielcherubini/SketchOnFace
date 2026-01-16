@@ -1,34 +1,38 @@
 # Wrap Command - UI and event handlers for SketchOnFace
 
+import traceback
+
 import adsk.core
 import adsk.fusion
-import traceback
 
 print("SketchOnFace: Loading wrap_command module...")
 
 try:
-    from ..core import surface_analyzer
-    from ..core import sketch_parser
-    from ..core import coordinate_mapper
-    from ..core import curve_generator
+    from ..core import (
+        coordinate_mapper,
+        curve_generator,
+        sketch_parser,
+        surface_analyzer,
+    )
+
     print("SketchOnFace: Core modules imported successfully")
 except Exception as e:
     print(f"SketchOnFace: Failed to import core modules: {e}")
     print(traceback.format_exc())
 
 # Command identity
-COMMAND_ID = 'SketchOnFaceCommand'
-COMMAND_NAME = 'Sketch On Face'
-COMMAND_DESCRIPTION = 'Wrap 2D sketch curves onto a 3D surface.'
-COMMAND_RESOURCES = './resources'
+COMMAND_ID = "SketchOnFaceCommand"
+COMMAND_NAME = "Sketch On Face"
+COMMAND_DESCRIPTION = "Wrap 2D sketch curves onto a 3D surface."
+COMMAND_RESOURCES = "./resources"
 
 # Input IDs
-INPUT_FACE = COMMAND_ID + '_face'
-INPUT_SKETCH = COMMAND_ID + '_sketch'
-INPUT_EDGE = COMMAND_ID + '_edge'
-INPUT_SCALE_X = COMMAND_ID + '_scaleX'
-INPUT_SCALE_Y = COMMAND_ID + '_scaleY'
-INPUT_OFFSET = COMMAND_ID + '_offset'
+INPUT_FACE = COMMAND_ID + "_face"
+INPUT_SKETCH = COMMAND_ID + "_sketch"
+INPUT_EDGE = COMMAND_ID + "_edge"
+INPUT_SCALE_X = COMMAND_ID + "_scaleX"
+INPUT_SCALE_Y = COMMAND_ID + "_scaleY"
+INPUT_OFFSET = COMMAND_ID + "_offset"
 
 # Global event handlers (prevent garbage collection)
 handlers = []
@@ -74,68 +78,52 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
             # Face selection (required)
             face_input = inputs.addSelectionInput(
-                INPUT_FACE,
-                'Target Face',
-                'Select the face to wrap sketch onto'
+                INPUT_FACE, "Target Face", "Select the face to wrap sketch onto"
             )
-            face_input.addSelectionFilter('Faces')
+            face_input.addSelectionFilter("Faces")
             face_input.setSelectionLimits(1, 1)
 
             # Sketch curve selection (required)
             sketch_input = inputs.addSelectionInput(
-                INPUT_SKETCH,
-                'Sketch Curves',
-                'Select sketch curves to wrap'
+                INPUT_SKETCH, "Sketch Curves", "Select sketch curves to wrap"
             )
-            sketch_input.addSelectionFilter('SketchCurves')
-            sketch_input.addSelectionFilter('SketchPoints')
+            sketch_input.addSelectionFilter("SketchCurves")
+            sketch_input.addSelectionFilter("SketchPoints")
             sketch_input.setSelectionLimits(1, 0)  # 1 minimum, unlimited maximum
 
             # Reference edge selection (optional - for manual override)
             edge_input = inputs.addSelectionInput(
                 INPUT_EDGE,
-                'Reference Edge (Optional)',
-                'Select edge to define wrap direction. Auto-detects if not specified.'
+                "Reference Edge (Optional)",
+                "Select edge to define wrap direction. Auto-detects if not specified.",
             )
-            edge_input.addSelectionFilter('Edges')
+            edge_input.addSelectionFilter("Edges")
             edge_input.setSelectionLimits(0, 1)  # Optional
 
             # X Scale
             inputs.addFloatSpinnerCommandInput(
                 INPUT_SCALE_X,
-                'X Scale',
-                '',
-                0.01,   # min
+                "X Scale",
+                "",
+                0.01,  # min
                 100.0,  # max
-                0.1,    # step
-                1.0     # initial
+                0.1,  # step
+                1.0,  # initial
             )
 
             # Y Scale
             inputs.addFloatSpinnerCommandInput(
-                INPUT_SCALE_Y,
-                'Y Scale',
-                '',
-                0.01,
-                100.0,
-                0.1,
-                1.0
+                INPUT_SCALE_Y, "Y Scale", "", 0.01, 100.0, 0.1, 1.0
             )
 
             # Surface offset
             inputs.addFloatSpinnerCommandInput(
-                INPUT_OFFSET,
-                'Surface Offset',
-                'cm',
-                -10.0,
-                10.0,
-                0.01,
-                0.0
+                INPUT_OFFSET, "Surface Offset", "cm", -10.0, 10.0, 0.01, 0.0
             )
 
         except:
             if _ui:
-                _ui.messageBox(f'Command created failed:\n{traceback.format_exc()}')
+                _ui.messageBox(f"Command created failed:\n{traceback.format_exc()}")
 
 
 class ExecuteHandler(adsk.core.CommandEventHandler):
@@ -176,17 +164,13 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             surface_info = surface_analyzer.analyze(face, ref_edge)
             point_sequences = sketch_parser.parse(sketch_curves)
             mapped_sequences = coordinate_mapper.map_to_surface(
-                point_sequences,
-                surface_info,
-                scale_x,
-                scale_y,
-                offset
+                point_sequences, surface_info, scale_x, scale_y, offset
             )
             curve_generator.generate(mapped_sequences, _app)
 
         except:
             if _ui:
-                _ui.messageBox(f'Execution failed:\n{traceback.format_exc()}')
+                _ui.messageBox(f"Execution failed:\n{traceback.format_exc()}")
 
 
 class PreviewHandler(adsk.core.CommandEventHandler):
@@ -229,11 +213,7 @@ class PreviewHandler(adsk.core.CommandEventHandler):
             surface_info = surface_analyzer.analyze(face, ref_edge)
             point_sequences = sketch_parser.parse(sketch_curves)
             mapped_sequences = coordinate_mapper.map_to_surface(
-                point_sequences,
-                surface_info,
-                scale_x,
-                scale_y,
-                offset
+                point_sequences, surface_info, scale_x, scale_y, offset
             )
             curve_generator.generate(mapped_sequences, _app)
 
@@ -261,8 +241,7 @@ class ValidateInputsHandler(adsk.core.ValidateInputsEventHandler):
 
             # Require at least face and one sketch curve
             args.areInputsValid = (
-                face_input.selectionCount == 1 and
-                sketch_input.selectionCount >= 1
+                face_input.selectionCount == 1 and sketch_input.selectionCount >= 1
             )
 
         except:
@@ -303,10 +282,7 @@ def start(app: adsk.core.Application, ui: adsk.core.UserInterface):
         cmd_def = ui.commandDefinitions.itemById(COMMAND_ID)
         if not cmd_def:
             cmd_def = ui.commandDefinitions.addButtonDefinition(
-                COMMAND_ID,
-                COMMAND_NAME,
-                COMMAND_DESCRIPTION,
-                COMMAND_RESOURCES
+                COMMAND_ID, COMMAND_NAME, COMMAND_DESCRIPTION, COMMAND_RESOURCES
             )
 
         # Add command created handler
@@ -315,7 +291,7 @@ def start(app: adsk.core.Application, ui: adsk.core.UserInterface):
         handlers.append(on_command_created)
 
         # Add to Add-Ins panel
-        panel = ui.allToolbarPanels.itemById('SolidScriptsAddinsPanel')
+        panel = ui.allToolbarPanels.itemById("SolidScriptsAddinsPanel")
         if panel:
             button = panel.controls.itemById(COMMAND_ID)
             if not button:
@@ -325,7 +301,7 @@ def start(app: adsk.core.Application, ui: adsk.core.UserInterface):
 
     except:
         if ui:
-            ui.messageBox(f'Failed to start command:\n{traceback.format_exc()}')
+            ui.messageBox(f"Failed to start command:\n{traceback.format_exc()}")
 
 
 def stop(ui: adsk.core.UserInterface):
@@ -334,7 +310,7 @@ def stop(ui: adsk.core.UserInterface):
 
     try:
         # Remove from panel
-        panel = ui.allToolbarPanels.itemById('SolidScriptsAddinsPanel')
+        panel = ui.allToolbarPanels.itemById("SolidScriptsAddinsPanel")
         if panel:
             button = panel.controls.itemById(COMMAND_ID)
             if button:
@@ -349,4 +325,4 @@ def stop(ui: adsk.core.UserInterface):
 
     except:
         if ui:
-            ui.messageBox(f'Failed to stop command:\n{traceback.format_exc()}')
+            ui.messageBox(f"Failed to stop command:\n{traceback.format_exc()}")

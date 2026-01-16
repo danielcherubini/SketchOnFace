@@ -1,15 +1,16 @@
 # Author: Daniel
 # Description: Wrap 2D sketch curves onto arbitrary 3D surfaces
 
+import traceback
+
 import adsk.core
 import adsk.fusion
-import traceback
 
 wrap_command = None
 
 try:
     from .commands import wrap_command
-except Exception as e:
+except Exception:
     # Import error will be shown when trying to run
     pass
 
@@ -17,7 +18,7 @@ except Exception as e:
 app = None
 ui = None
 
-ADDIN_NAME = 'SketchOnFace'
+ADDIN_NAME = "SketchOnFace"
 
 
 def run(context):
@@ -30,11 +31,13 @@ def run(context):
         if wrap_command:
             wrap_command.start(app, ui)
         else:
-            ui.messageBox("SketchOnFace: Failed to load modules. Check the Text Commands window for errors.")
+            ui.messageBox(
+                "SketchOnFace: Failed to load modules. Check the Text Commands window for errors."
+            )
 
     except:
         if ui:
-            ui.messageBox(f'Failed to start {ADDIN_NAME}:\n{traceback.format_exc()}')
+            ui.messageBox(f"Failed to start {ADDIN_NAME}:\n{traceback.format_exc()}")
 
 
 def stop(context):
@@ -49,4 +52,4 @@ def stop(context):
 
     except:
         if ui:
-            ui.messageBox(f'Failed to stop {ADDIN_NAME}:\n{traceback.format_exc()}')
+            ui.messageBox(f"Failed to stop {ADDIN_NAME}:\n{traceback.format_exc()}")

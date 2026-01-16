@@ -1,12 +1,11 @@
 # Sketch Parser - Extract 2D points from sketch geometry
 
-import adsk.core
-import adsk.fusion
 import math
 
 
 class PointSequence:
     """A sequence of 2D points representing a curve."""
+
     def __init__(self, points, is_closed, source_type):
         self.points = points  # List of (x, y) tuples
         self.is_closed = is_closed
@@ -22,23 +21,24 @@ def parse(sketch_curves):
 
     Returns:
         List of PointSequence objects, one per input curve.
+
     """
     sequences = []
 
     for entity in sketch_curves:
         obj_type = entity.objectType
 
-        if obj_type == 'adsk::fusion::SketchFittedSpline':
+        if obj_type == "adsk::fusion::SketchFittedSpline":
             seq = _parse_fitted_spline(entity)
-        elif obj_type == 'adsk::fusion::SketchLine':
+        elif obj_type == "adsk::fusion::SketchLine":
             seq = _parse_line(entity)
-        elif obj_type == 'adsk::fusion::SketchArc':
+        elif obj_type == "adsk::fusion::SketchArc":
             seq = _parse_arc(entity)
-        elif obj_type == 'adsk::fusion::SketchCircle':
+        elif obj_type == "adsk::fusion::SketchCircle":
             seq = _parse_circle(entity)
-        elif obj_type == 'adsk::fusion::SketchPoint':
+        elif obj_type == "adsk::fusion::SketchPoint":
             seq = _parse_point(entity)
-        elif obj_type == 'adsk::fusion::SketchFixedSpline':
+        elif obj_type == "adsk::fusion::SketchFixedSpline":
             seq = _parse_fixed_spline(entity)
         else:
             # Skip unsupported types
@@ -59,7 +59,7 @@ def _parse_fitted_spline(spline):
         pt = fit_points.item(i).geometry
         points.append((pt.x, pt.y))
 
-    return PointSequence(points, spline.isClosed, 'SketchFittedSpline')
+    return PointSequence(points, spline.isClosed, "SketchFittedSpline")
 
 
 def _parse_fixed_spline(spline):
@@ -79,7 +79,7 @@ def _parse_fixed_spline(spline):
         _, pt = evaluator.getPointAtParameter(param)
         points.append((pt.x, pt.y))
 
-    return PointSequence(points, spline.isClosed, 'SketchFixedSpline')
+    return PointSequence(points, spline.isClosed, "SketchFixedSpline")
 
 
 def _parse_line(line, num_samples=20):
@@ -95,7 +95,7 @@ def _parse_line(line, num_samples=20):
         y = start.y + t * (end.y - start.y)
         points.append((x, y))
 
-    return PointSequence(points, False, 'SketchLine')
+    return PointSequence(points, False, "SketchLine")
 
 
 def _parse_arc(arc):
@@ -115,7 +115,7 @@ def _parse_arc(arc):
         _, pt = evaluator.getPointAtParameter(param)
         points.append((pt.x, pt.y))
 
-    return PointSequence(points, False, 'SketchArc')
+    return PointSequence(points, False, "SketchArc")
 
 
 def _parse_circle(circle):
@@ -132,11 +132,11 @@ def _parse_circle(circle):
         y = center.y + radius * math.sin(angle)
         points.append((x, y))
 
-    return PointSequence(points, True, 'SketchCircle')
+    return PointSequence(points, True, "SketchCircle")
 
 
 def _parse_point(point):
     """Extract a single point."""
     pt = point.geometry
 
-    return PointSequence([(pt.x, pt.y)], False, 'SketchPoint')
+    return PointSequence([(pt.x, pt.y)], False, "SketchPoint")

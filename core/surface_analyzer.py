@@ -6,9 +6,22 @@ import adsk.fusion
 
 class SurfaceInfo:
     """Container for analyzed surface properties."""
-    def __init__(self, face, evaluator, u_min, u_max, v_min, v_max,
-                 ref_edge, ref_edge_evaluator, ref_edge_length,
-                 ref_edge_param_start, ref_edge_param_end, surface_height):
+
+    def __init__(
+        self,
+        face,
+        evaluator,
+        u_min,
+        u_max,
+        v_min,
+        v_max,
+        ref_edge,
+        ref_edge_evaluator,
+        ref_edge_length,
+        ref_edge_param_start,
+        ref_edge_param_end,
+        surface_height,
+    ):
         self.face = face
         self.evaluator = evaluator
         self.u_min = u_min
@@ -33,6 +46,7 @@ def analyze(face, ref_edge=None):
 
     Returns:
         SurfaceInfo with surface evaluator, bounds, and reference edge info.
+
     """
     evaluator = face.evaluator
 
@@ -68,7 +82,7 @@ def analyze(face, ref_edge=None):
         ref_edge_length=ref_edge_length,
         ref_edge_param_start=param_start,
         ref_edge_param_end=param_end,
-        surface_height=surface_height
+        surface_height=surface_height,
     )
 
 
