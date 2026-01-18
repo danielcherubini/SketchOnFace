@@ -3,6 +3,9 @@
 import adsk.core
 import adsk.fusion
 
+# Surface height calculation sampling resolution
+DEFAULT_HEIGHT_SAMPLES = 10  # Number of samples along V direction for height calculation
+
 
 class SurfaceInfo:
     """Container for analyzed surface properties."""
@@ -51,7 +54,13 @@ def analyze(face, ref_edge=None):
     evaluator = face.evaluator
 
     # Get parametric bounds
-    param_range = evaluator.parametricRange()
+    try:
+        param_range = evaluator.parametricRange()
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to get parametric range from face. "
+            f"The selected face may not be valid for wrapping. Error: {e}"
+        )
     u_min = param_range.minPoint.x
     u_max = param_range.maxPoint.x
     v_min = param_range.minPoint.y
@@ -104,7 +113,7 @@ def _find_longest_edge(face):
     return longest_edge
 
 
-def _calculate_surface_height(evaluator, u, v_min, v_max, samples=10):
+def _calculate_surface_height(evaluator, u, v_min, v_max, samples=DEFAULT_HEIGHT_SAMPLES):
     """
     Calculate physical height of surface along V direction.
     Uses sampling to handle curved surfaces.

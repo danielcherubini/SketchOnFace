@@ -2,6 +2,13 @@
 
 import math
 
+# Sampling resolution for curve discretization
+# These control how many points are sampled from various curve types
+DEFAULT_LINE_SAMPLES = 20  # Points per line segment
+FIXED_SPLINE_SAMPLES = 20  # Sample points for fixed splines
+MIN_ARC_SAMPLES = 10  # Minimum samples for arcs (scaled by angle)
+CIRCLE_SAMPLES = 36  # Samples per circle (every 10 degrees)
+
 
 class PointSequence:
     """A sequence of 2D points representing a curve."""
@@ -26,6 +33,13 @@ def parse(sketch_curves):
     sequences = []
 
     for entity in sketch_curves:
+        # Skip construction geometry
+        try:
+            if hasattr(entity, 'isConstruction') and entity.isConstruction:
+                continue
+        except Exception:
+            pass  # Some entities might not have isConstruction property
+
         obj_type = entity.objectType
 
         if obj_type == "adsk::fusion::SketchFittedSpline":
@@ -71,10 +85,9 @@ def _parse_fixed_spline(spline):
     _, param_start, param_end = evaluator.getParameterExtents()
 
     # Sample along the spline
-    num_samples = 20
-    param_step = (param_end - param_start) / num_samples
+    param_step = (param_end - param_start) / FIXED_SPLINE_SAMPLES
 
-    for i in range(num_samples + 1):
+    for i in range(FIXED_SPLINE_SAMPLES + 1):
         param = param_start + i * param_step
         _, pt = evaluator.getPointAtParameter(param)
         points.append((pt.x, pt.y))
@@ -82,7 +95,7 @@ def _parse_fixed_spline(spline):
     return PointSequence(points, spline.isClosed, "SketchFixedSpline")
 
 
-def _parse_line(line, num_samples=20):
+def _parse_line(line, num_samples=DEFAULT_LINE_SAMPLES):
     """Sample points along a line for proper surface wrapping."""
     start = line.startSketchPoint.geometry
     end = line.endSketchPoint.geometry
@@ -106,8 +119,8 @@ def _parse_arc(arc):
     evaluator = geometry.evaluator
     _, param_start, param_end = evaluator.getParameterExtents()
 
-    # Sample based on arc length
-    num_samples = max(10, int(abs(param_end - param_start) * 10))
+    # Sample based on arc angle (parameter range is in radians)
+    num_samples = max(MIN_ARC_SAMPLES, int(abs(param_end - param_start) * 10))
     param_step = (param_end - param_start) / num_samples
 
     for i in range(num_samples + 1):
@@ -124,10 +137,8 @@ def _parse_circle(circle):
     center = circle.centerSketchPoint.geometry
     radius = circle.radius
 
-    num_samples = 36  # Every 10 degrees
-
-    for i in range(num_samples):
-        angle = 2 * math.pi * i / num_samples
+    for i in range(CIRCLE_SAMPLES):
+        angle = 2 * math.pi * i / CIRCLE_SAMPLES
         x = center.x + radius * math.cos(angle)
         y = center.y + radius * math.sin(angle)
         points.append((x, y))

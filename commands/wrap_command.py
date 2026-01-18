@@ -132,12 +132,12 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
             # Surface normal offset (distance from surface)
             inputs.addFloatSpinnerCommandInput(
-                INPUT_OFFSET_NORMAL, "Surface Offset", "cm", -10.0, 10.0, 0.01, 0.0
+                INPUT_OFFSET_NORMAL, "Surface Offset", "mm", -100.0, 100.0, 0.1, 0.0
             )
 
-        except:
+        except Exception as e:
             if _ui:
-                _ui.messageBox(f"Command created failed:\n{traceback.format_exc()}")
+                _ui.messageBox(f"Command created failed:\n{e}\n{traceback.format_exc()}")
 
 
 class ExecuteHandler(adsk.core.CommandEventHandler):
@@ -153,8 +153,9 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             if _preview_sketch:
                 try:
                     _preview_sketch.deleteMe()
-                except:
-                    pass
+                except Exception as e:
+                    print(f"SketchOnFace: Failed to delete preview sketch: {e}")
+                    # Continue execution - preview cleanup failure is non-critical
                 _preview_sketch = None
 
             cmd = args.command
@@ -220,8 +221,9 @@ class PreviewHandler(adsk.core.CommandEventHandler):
             if _preview_sketch:
                 try:
                     _preview_sketch.deleteMe()
-                except:
-                    pass
+                except Exception as e:
+                    print(f"SketchOnFace: Failed to delete preview sketch: {e}")
+                    # Continue execution - preview cleanup failure is non-critical
                 _preview_sketch = None
 
             cmd = args.command
@@ -270,7 +272,8 @@ class PreviewHandler(adsk.core.CommandEventHandler):
             # The preview geometry is visible but won't be "committed" by Fusion
             args.isValidResult = False
 
-        except:
+        except Exception as e:
+            print(f"SketchOnFace: Preview handler error: {e}")
             args.isValidResult = False
 
 
@@ -293,7 +296,8 @@ class ValidateInputsHandler(adsk.core.ValidateInputsEventHandler):
                 face_input.selectionCount == 1 and sketch_input.selectionCount >= 1
             )
 
-        except:
+        except Exception as e:
+            print(f"SketchOnFace: Input validation failed: {e}")
             args.areInputsValid = False
 
 
@@ -343,22 +347,23 @@ def _create_custom_feature(
         if ref_edge:
             cust_feat_input.addDependency("refEdge", ref_edge)
 
-        # Add parameters (editable values)
+        # Add parameters (internal to CustomFeature, edited via edit dialog)
+        # Set isVisible=False to prevent cluttering the Parameters panel
         cust_feat_input.addCustomParameter(
-            "scaleX", "X Scale", adsk.core.ValueInput.createByReal(scale_x), "", True
+            "scaleX", "X Scale", adsk.core.ValueInput.createByReal(scale_x), "", False
         )
         cust_feat_input.addCustomParameter(
-            "scaleY", "Y Scale", adsk.core.ValueInput.createByReal(scale_y), "", True
+            "scaleY", "Y Scale", adsk.core.ValueInput.createByReal(scale_y), "", False
         )
         cust_feat_input.addCustomParameter(
-            "offsetX", "X Offset", adsk.core.ValueInput.createByReal(offset_x), "", True
+            "offsetX", "X Offset", adsk.core.ValueInput.createByReal(offset_x), "", False
         )
         cust_feat_input.addCustomParameter(
-            "offsetY", "Y Offset", adsk.core.ValueInput.createByReal(offset_y), "", True
+            "offsetY", "Y Offset", adsk.core.ValueInput.createByReal(offset_y), "", False
         )
         cust_feat_input.addCustomParameter(
             "offsetNormal", "Surface Offset",
-            adsk.core.ValueInput.createByReal(offset_normal), "cm", True
+            adsk.core.ValueInput.createByReal(offset_normal), "mm", False
         )
 
         # Create the custom feature - this triggers the compute handler
@@ -402,9 +407,9 @@ def start(
                 button.isPromotedByDefault = True
                 button.isPromoted = True
 
-    except:
+    except Exception as e:
         if ui:
-            ui.messageBox(f"Failed to start command:\n{traceback.format_exc()}")
+            ui.messageBox(f"Failed to start command:\n{e}\n{traceback.format_exc()}")
 
 
 def stop(ui: adsk.core.UserInterface):
@@ -427,6 +432,6 @@ def stop(ui: adsk.core.UserInterface):
         handlers = []
         _custom_feature_def = None
 
-    except:
+    except Exception as e:
         if ui:
-            ui.messageBox(f"Failed to stop command:\n{traceback.format_exc()}")
+            ui.messageBox(f"Failed to stop command:\n{e}\n{traceback.format_exc()}")

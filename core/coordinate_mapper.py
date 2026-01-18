@@ -1,7 +1,13 @@
 # Coordinate Mapper - Map 2D sketch coordinates to 3D surface using arc-length parameterization
 
+import math
+
 import adsk.core
 import adsk.fusion
+
+# Surface parameter detection threshold
+# Used to detect if V parameter represents circumference (typically 2π range)
+CIRCUMFERENCE_DETECTION_THRESHOLD = 1.0  # Tolerance in radians for 2π detection
 
 
 class MappedSequence:
@@ -105,6 +111,32 @@ def _get_bounds(sequences):
     return min(x_coords), max(x_coords), min(y_coords), max(y_coords)
 
 
+def _fix_seam_discontinuity(wrap_param, prev_wrap_param, wrap_range):
+    """
+    Fix parameter discontinuity when crossing surface seam.
+
+    When wrapping around a closed surface (cylinder, cone, etc.), the parameter
+    can jump from max to min. This detects large jumps (>50% of range) and
+    adjusts the parameter to maintain continuity.
+
+    Args:
+        wrap_param: Current wrap parameter value
+        prev_wrap_param: Previous wrap parameter value (or None)
+        wrap_range: Total range of wrap parameter
+
+    Returns:
+        Adjusted wrap_param with seam discontinuity fixed
+    """
+    if prev_wrap_param is not None:
+        # If wrap_param jumped backward by more than half the range, we crossed the seam
+        if prev_wrap_param - wrap_param > wrap_range / 2:
+            wrap_param += wrap_range
+        elif wrap_param - prev_wrap_param > wrap_range / 2:
+            wrap_param -= wrap_range
+
+    return wrap_param
+
+
 def _map_point(
     x, y, surface_info, total_width, total_height, offset, prev_wrap_param, debug_ui=None
 ):
@@ -120,8 +152,6 @@ def _map_point(
     Returns:
         Tuple of (Point3D, wrap_param) where wrap_param is used to detect seam crossings.
     """
-    import math
-
     # Calculate arc length for this X position
     # Normalize x to [0, edge_length]
     if total_width > 0:
@@ -180,19 +210,13 @@ def _map_point(
 
     # If V range is close to 2*pi (~6.28), V is circumference, U is height
     # Otherwise assume U is circumference, V is height
-    if abs(v_range - 2 * math.pi) < 1.0:
+    if abs(v_range - 2 * math.pi) < CIRCUMFERENCE_DETECTION_THRESHOLD:
         # V is circumference (wrap), U is height
         wrap_param = uv_at_edge.y
         wrap_range = v_range
-        wrap_min = surface_info.v_min
 
         # Detect and fix seam discontinuity
-        if prev_wrap_param is not None:
-            # If wrap_param jumped backward by more than half the range, we crossed the seam
-            if prev_wrap_param - wrap_param > wrap_range / 2:
-                wrap_param += wrap_range
-            elif wrap_param - prev_wrap_param > wrap_range / 2:
-                wrap_param -= wrap_range
+        wrap_param = _fix_seam_discontinuity(wrap_param, prev_wrap_param, wrap_range)
 
         u_param = surface_info.u_min + height_ratio * u_range
         v_param = wrap_param
@@ -201,15 +225,9 @@ def _map_point(
         # Standard: U is circumference (wrap), V is height
         wrap_param = uv_at_edge.x
         wrap_range = u_range
-        wrap_min = surface_info.u_min
 
         # Detect and fix seam discontinuity
-        if prev_wrap_param is not None:
-            # If wrap_param jumped backward by more than half the range, we crossed the seam
-            if prev_wrap_param - wrap_param > wrap_range / 2:
-                wrap_param += wrap_range
-            elif wrap_param - prev_wrap_param > wrap_range / 2:
-                wrap_param -= wrap_range
+        wrap_param = _fix_seam_discontinuity(wrap_param, prev_wrap_param, wrap_range)
 
         u_param = wrap_param
         v_param = surface_info.v_min + height_ratio * v_range

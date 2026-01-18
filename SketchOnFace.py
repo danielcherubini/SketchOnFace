@@ -43,17 +43,15 @@ def run(context):
             )
             return
 
-        # Register edit command first (must exist before we reference its ID)
-        if edit_command:
-            edit_command.start(app, ui)
-
         # Create CustomFeatureDefinition for parametric timeline support
         _custom_feature_def = adsk.fusion.CustomFeatureDefinition.create(
             CUSTOM_FEATURE_ID, CUSTOM_FEATURE_NAME, "resources"
         )
 
-        # Link the edit command for double-click editing
+        # Register edit command first (must exist before we reference its ID)
         if edit_command:
+            edit_command.start(app, ui, _custom_feature_def)
+            # Link the edit command for double-click editing
             _custom_feature_def.editCommandId = edit_command.COMMAND_ID
 
         # Register compute handler for auto-recompute when dependencies change
