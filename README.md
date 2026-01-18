@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="resources/sketch-on-face-logo.png" alt="SketchOnFace Logo" width="400"/>
+</div>
+
 # SketchOnFace
 
 A Fusion 360 add-in that wraps 2D sketch curves onto arbitrary 3D surfaces using arc-length parameterization.
@@ -8,15 +12,47 @@ A Fusion 360 add-in that wraps 2D sketch curves onto arbitrary 3D surfaces using
 - **Arc-length parameterization** - Preserves proportions when wrapping onto non-uniform curves like ovals.
 - **Auto-detect or manual edge selection** - Automatically finds the longest edge for wrap direction, or select one manually.
 - **Scale and offset controls** - Adjust X/Y scale and surface offset distance.
+- **Parametric editing** - Edit wrapped features through the timeline like native Fusion features.
 
 ## Installation
 
-1. Download or clone this repository
-2. In Fusion 360, go to **Tools** > **Add-Ins** > **Scripts and Add-Ins**
-3. Click the **Add-Ins** tab
-4. Click the green **+** next to "My Add-Ins"
-5. Navigate to the `SketchOnFace` folder and select it
-6. Click **Run** to start the add-in
+### Method 1: Direct Installation (Recommended)
+
+1. **Download the add-in**
+   - Click the green **Code** button on this repository
+   - Select **Download ZIP**
+   - Extract the ZIP file to a location on your computer (e.g., `Documents/Fusion360/AddIns/`)
+
+2. **Install in Fusion 360**
+   - Open Fusion 360
+   - Go to **Tools** → **Add-Ins** → **Scripts and Add-Ins** (or press `Shift + S`)
+   - Click the **Add-Ins** tab at the top
+   - Click the green **+** icon next to "My Add-Ins"
+   - Navigate to the extracted `SketchOnFace` folder and select it
+   - The add-in should now appear in your list
+
+3. **Run the add-in**
+   - Select **SketchOnFace** from the list
+   - Click **Run**
+   - The **Sketch On Face** button will appear in the **Add-Ins** panel
+
+4. **Run on Startup (Optional)**
+   - Check the **Run on Startup** checkbox to automatically load the add-in when Fusion 360 starts
+
+### Method 2: Git Clone (For Development)
+
+```bash
+cd ~/Documents/Fusion360/AddIns/
+git clone https://github.com/yourusername/SketchOnFace.git
+```
+
+Then follow steps 2-4 from Method 1.
+
+### Troubleshooting Installation
+
+- **Add-in doesn't appear**: Make sure you selected the `SketchOnFace` folder itself, not a parent folder
+- **Errors on startup**: Check the **Text Commands** window (Tools → Text Commands) for error messages
+- **Button doesn't appear**: Try restarting Fusion 360 after installation
 
 ## Usage
 
