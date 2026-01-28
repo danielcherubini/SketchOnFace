@@ -21,7 +21,8 @@ class MappedSequence:
 
 def map_to_surface(
     point_sequences, surface_info, scale_x=1.0, scale_y=1.0,
-    offset_x=0.0, offset_y=0.0, offset_normal=0.0, debug_ui=None
+    offset_x=0.0, offset_y=0.0, offset_normal=0.0,
+    invert_x=False, invert_y=False, debug_ui=None
 ):
     """
     Map 2D point sequences onto a 3D surface.
@@ -34,6 +35,8 @@ def map_to_surface(
         offset_x: Position offset in X (wrap) direction (0-1, where 1 = full circumference)
         offset_y: Position offset in Y (height) direction (0-1, where 1 = full height)
         offset_normal: Distance to offset from surface along normal
+        invert_x: Invert the X (wrap) direction
+        invert_y: Invert the Y (height) direction (note: Y is inverted by default)
 
     Returns:
         List of MappedSequence with 3D points.
@@ -64,6 +67,14 @@ def map_to_surface(
             # Normalize to [0, 1] then apply scaling
             x_normalized = (x - x_min) / x_range if x_range > 0 else 0.0
             y_normalized = (y - y_min) / y_range if y_range > 0 else 0.0
+
+            # Apply inversion to normalized coordinates
+            # Y is inverted by default because surface V parameters typically run
+            # opposite to intuitive sketch Y direction (bottom-to-top vs top-to-bottom)
+            if invert_x:
+                x_normalized = 1.0 - x_normalized
+            if not invert_y:  # Invert Y by default; checking "Invert Y" restores original orientation
+                y_normalized = 1.0 - y_normalized
 
             # Scale affects how much of the surface the sketch covers
             # scale=1 means sketch maps to full surface, scale=0.5 means half, etc.

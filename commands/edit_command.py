@@ -17,6 +17,8 @@ INPUT_SCALE_Y = COMMAND_ID + "_scaleY"
 INPUT_OFFSET_X = COMMAND_ID + "_offsetX"
 INPUT_OFFSET_Y = COMMAND_ID + "_offsetY"
 INPUT_OFFSET_NORMAL = COMMAND_ID + "_offsetNormal"
+INPUT_INVERT_X = COMMAND_ID + "_invertX"
+INPUT_INVERT_Y = COMMAND_ID + "_invertY"
 
 # Global event handlers
 handlers = []
@@ -138,6 +140,10 @@ class EditCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
             logger.log(f"SketchOnFace Edit: Will display value - {current_offset_normal} cm = {current_offset_normal_mm} mm")
 
+            # Get invert parameters (stored as 1.0/0.0 for true/false)
+            current_invert_x = _get_parameter_value(_edited_feature, "invertX", 0.0) > 0.5
+            current_invert_y = _get_parameter_value(_edited_feature, "invertY", 0.0) > 0.5
+
             # === UI INPUTS ===
             # Note: Face/curves/edge cannot be changed after creation - only parameters
 
@@ -177,6 +183,10 @@ class EditCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 offset_normal_input = inputs.addFloatSpinnerCommandInput(
                     INPUT_OFFSET_NORMAL, "Surface Offset", "mm", -100.0, 100.0, 0.1, 0.0
                 )
+
+            # Invert options for orientation control
+            inputs.addBoolValueInput(INPUT_INVERT_X, "Invert X (Wrap Direction)", True, "", current_invert_x)
+            inputs.addBoolValueInput(INPUT_INVERT_Y, "Invert Y (Height Direction)", True, "", current_invert_y)
 
         except Exception as e:
             logger.log(f"SketchOnFace Edit: Command creation failed: {e}\n{traceback.format_exc()}")
@@ -254,7 +264,11 @@ class EditExecuteHandler(adsk.core.CommandEventHandler):
             offset_normal_input = inputs.itemById(INPUT_OFFSET_NORMAL)
             offset_normal = offset_normal_input.value  # Already in cm (internal units)
 
-            logger.log(f"SketchOnFace Edit: Read from inputs - offsetNormal.value={offset_normal} cm")
+            # Get invert values
+            invert_x = inputs.itemById(INPUT_INVERT_X).value
+            invert_y = inputs.itemById(INPUT_INVERT_Y).value
+
+            logger.log(f"SketchOnFace Edit: Read from inputs - offsetNormal.value={offset_normal} cm, invertX={invert_x}, invertY={invert_y}")
 
             # Note: CustomFeature parameters are stored in attributes, not real parameters.
             # We update the attributes and force a recompute.
@@ -267,7 +281,7 @@ class EditExecuteHandler(adsk.core.CommandEventHandler):
             # Store new values in attributes (which the compute handler reads)
             attrs = _edited_feature.attributes
 
-            logger.log(f"SketchOnFace Edit: Storing scaleX={scale_x}, scaleY={scale_y}, offsetX={offset_x}, offsetY={offset_y}, offsetNormal={offset_normal}")
+            logger.log(f"SketchOnFace Edit: Storing scaleX={scale_x}, scaleY={scale_y}, offsetX={offset_x}, offsetY={offset_y}, offsetNormal={offset_normal}, invertX={invert_x}, invertY={invert_y}")
 
             # Update or create attribute values
             if attrs.itemByName("SketchOnFace", "scaleX"):
@@ -294,6 +308,20 @@ class EditExecuteHandler(adsk.core.CommandEventHandler):
                 attrs.itemByName("SketchOnFace", "offsetNormal").value = str(offset_normal)
             else:
                 attrs.add("SketchOnFace", "offsetNormal", str(offset_normal))
+
+            # Store invert values (as 1.0/0.0 for true/false)
+            invert_x_val = 1.0 if invert_x else 0.0
+            invert_y_val = 1.0 if invert_y else 0.0
+
+            if attrs.itemByName("SketchOnFace", "invertX"):
+                attrs.itemByName("SketchOnFace", "invertX").value = str(invert_x_val)
+            else:
+                attrs.add("SketchOnFace", "invertX", str(invert_x_val))
+
+            if attrs.itemByName("SketchOnFace", "invertY"):
+                attrs.itemByName("SketchOnFace", "invertY").value = str(invert_y_val)
+            else:
+                attrs.add("SketchOnFace", "invertY", str(invert_y_val))
 
             # Force the custom feature to recompute
             # Strategy: Update just ONE parameter to trigger the compute handler.

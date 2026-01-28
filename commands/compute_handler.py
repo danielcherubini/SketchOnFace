@@ -114,7 +114,11 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
                 # Fall back to legacy "offset" parameter name for features created before v1.1
                 offset_normal = _get_parameter_value(cust_feature, "offset", 0.0)
 
-            logger.log(f"SketchOnFace Compute: Retrieved scaleX={scale_x}, scaleY={scale_y}, offsetX={offset_x}, offsetY={offset_y}, offsetNormal={offset_normal}")
+            # Get invert parameters (stored as 1.0/0.0 for true/false)
+            invert_x = _get_parameter_value(cust_feature, "invertX", 0.0) > 0.5
+            invert_y = _get_parameter_value(cust_feature, "invertY", 0.0) > 0.5
+
+            logger.log(f"SketchOnFace Compute: Retrieved scaleX={scale_x}, scaleY={scale_y}, offsetX={offset_x}, offsetY={offset_y}, offsetNormal={offset_normal}, invertX={invert_x}, invertY={invert_y}")
 
             # Analyze surface and generate new geometry
             design = adsk.fusion.Design.cast(app.activeProduct)
@@ -133,7 +137,7 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
             point_sequences = sketch_parser.parse(sketch_curves)
             mapped_sequences = coordinate_mapper.map_to_surface(
                 point_sequences, surface_info, scale_x, scale_y,
-                offset_x, offset_y, offset_normal
+                offset_x, offset_y, offset_normal, invert_x, invert_y
             )
 
             # Try to find existing BaseFeature to reuse (prevents timeline duplication during edits)
@@ -152,19 +156,20 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
                     logger.log(f"SketchOnFace Compute: Failed to find existing BaseFeature: {e}")
                     # Continue - will create new one
 
-            # Delete old sketch if it exists (before creating new one)
+            # Find existing sketch to update in place (preserves downstream references)
+            existing_sketch = None
             old_sketch_token = cust_feature.attributes.itemByName("SketchOnFace", "sketchToken")
             if old_sketch_token:
                 try:
                     found_entities = design.findEntityByToken(old_sketch_token.value)
                     if found_entities and len(found_entities) > 0:
-                        old_sketch = found_entities[0]
-                        if old_sketch.objectType == adsk.fusion.Sketch.classType():
-                            old_sketch.deleteMe()
-                            logger.log(f"SketchOnFace Compute: Deleted old sketch")
+                        entity = found_entities[0]
+                        if entity.objectType == adsk.fusion.Sketch.classType():
+                            existing_sketch = adsk.fusion.Sketch.cast(entity)
+                            logger.log(f"SketchOnFace Compute: Found existing sketch to update in place")
                 except Exception as e:
-                    logger.log(f"SketchOnFace Compute: Failed to delete old sketch: {e}")
-                    # Continue - stale geometry is better than crashing
+                    logger.log(f"SketchOnFace Compute: Failed to find existing sketch: {e}")
+                    # Continue - will create new one
 
             # Create or reuse base feature
             if not base_feat:
@@ -175,15 +180,17 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
             if base_feat:
                 base_feat.startEdit()
                 try:
-                    new_sketch = curve_generator.generate(mapped_sequences, app)
+                    # Update existing sketch in place or create new one
+                    new_sketch = curve_generator.generate(mapped_sequences, app, existing_sketch)
                     if new_sketch:
-                        # Store sketch token
-                        attr = cust_feature.attributes.itemByName("SketchOnFace", "sketchToken")
-                        if attr:
-                            attr.value = new_sketch.entityToken
-                        else:
-                            cust_feature.attributes.add("SketchOnFace", "sketchToken", new_sketch.entityToken)
-                        logger.log(f"SketchOnFace Compute: Created sketch with {new_sketch.sketchCurves.count} curves")
+                        # Store sketch token (only needed if we created a new sketch)
+                        if not existing_sketch:
+                            attr = cust_feature.attributes.itemByName("SketchOnFace", "sketchToken")
+                            if attr:
+                                attr.value = new_sketch.entityToken
+                            else:
+                                cust_feature.attributes.add("SketchOnFace", "sketchToken", new_sketch.entityToken)
+                        logger.log(f"SketchOnFace Compute: {'Updated' if existing_sketch else 'Created'} sketch with {new_sketch.sketchCurves.count} curves")
                 finally:
                     base_feat.finishEdit()
 

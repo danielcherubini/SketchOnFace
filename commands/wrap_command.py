@@ -35,6 +35,8 @@ INPUT_SCALE_Y = COMMAND_ID + "_scaleY"
 INPUT_OFFSET_X = COMMAND_ID + "_offsetX"
 INPUT_OFFSET_Y = COMMAND_ID + "_offsetY"
 INPUT_OFFSET_NORMAL = COMMAND_ID + "_offsetNormal"
+INPUT_INVERT_X = COMMAND_ID + "_invertX"
+INPUT_INVERT_Y = COMMAND_ID + "_invertY"
 
 # Global event handlers (prevent garbage collection)
 handlers = []
@@ -135,6 +137,10 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 INPUT_OFFSET_NORMAL, "Surface Offset", "mm", -100.0, 100.0, 0.1, 0.0
             )
 
+            # Invert options for orientation control
+            inputs.addBoolValueInput(INPUT_INVERT_X, "Invert X (Wrap Direction)", True, "", False)
+            inputs.addBoolValueInput(INPUT_INVERT_Y, "Invert Y (Height Direction)", True, "", False)
+
         except Exception as e:
             if _ui:
                 _ui.messageBox(f"Command created failed:\n{e}\n{traceback.format_exc()}")
@@ -170,6 +176,8 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             offset_x_input = inputs.itemById(INPUT_OFFSET_X)
             offset_y_input = inputs.itemById(INPUT_OFFSET_Y)
             offset_normal_input = inputs.itemById(INPUT_OFFSET_NORMAL)
+            invert_x_input = inputs.itemById(INPUT_INVERT_X)
+            invert_y_input = inputs.itemById(INPUT_INVERT_Y)
 
             # Extract selected entities
             face = face_input.selection(0).entity
@@ -187,12 +195,14 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             offset_x = offset_x_input.value
             offset_y = offset_y_input.value
             offset_normal = offset_normal_input.value
+            invert_x = invert_x_input.value
+            invert_y = invert_y_input.value
 
             # Create CustomFeature - the compute handler will create the sketch
             if _custom_feature_def:
                 _create_custom_feature(
                     face, sketch_curves, ref_edge, scale_x, scale_y,
-                    offset_x, offset_y, offset_normal
+                    offset_x, offset_y, offset_normal, invert_x, invert_y
                 )
             else:
                 # Fallback if CustomFeature not available - create sketch directly
@@ -200,7 +210,7 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
                 point_sequences = sketch_parser.parse(sketch_curves)
                 mapped_sequences = coordinate_mapper.map_to_surface(
                     point_sequences, surface_info, scale_x, scale_y,
-                    offset_x, offset_y, offset_normal
+                    offset_x, offset_y, offset_normal, invert_x, invert_y
                 )
                 curve_generator.generate(mapped_sequences, _app)
 
@@ -237,6 +247,8 @@ class PreviewHandler(adsk.core.CommandEventHandler):
             offset_x_input = inputs.itemById(INPUT_OFFSET_X)
             offset_y_input = inputs.itemById(INPUT_OFFSET_Y)
             offset_normal_input = inputs.itemById(INPUT_OFFSET_NORMAL)
+            invert_x_input = inputs.itemById(INPUT_INVERT_X)
+            invert_y_input = inputs.itemById(INPUT_INVERT_Y)
 
             # Check we have required inputs
             if face_input.selectionCount < 1 or sketch_input.selectionCount < 1:
@@ -258,13 +270,15 @@ class PreviewHandler(adsk.core.CommandEventHandler):
             offset_x = offset_x_input.value
             offset_y = offset_y_input.value
             offset_normal = offset_normal_input.value
+            invert_x = invert_x_input.value
+            invert_y = invert_y_input.value
 
             # Create preview geometry
             surface_info = surface_analyzer.analyze(face, ref_edge)
             point_sequences = sketch_parser.parse(sketch_curves)
             mapped_sequences = coordinate_mapper.map_to_surface(
                 point_sequences, surface_info, scale_x, scale_y,
-                offset_x, offset_y, offset_normal
+                offset_x, offset_y, offset_normal, invert_x, invert_y
             )
             _preview_sketch = curve_generator.generate(mapped_sequences, _app)
 
@@ -325,7 +339,8 @@ class CommandDestroyHandler(adsk.core.CommandEventHandler):
 
 
 def _create_custom_feature(
-    face, sketch_curves, ref_edge, scale_x, scale_y, offset_x, offset_y, offset_normal
+    face, sketch_curves, ref_edge, scale_x, scale_y, offset_x, offset_y, offset_normal,
+    invert_x, invert_y
 ):
     """Create a CustomFeature - compute handler will create the sketch."""
     try:
@@ -364,6 +379,14 @@ def _create_custom_feature(
         cust_feat_input.addCustomParameter(
             "offsetNormal", "Surface Offset",
             adsk.core.ValueInput.createByReal(offset_normal), "mm", False
+        )
+        cust_feat_input.addCustomParameter(
+            "invertX", "Invert X",
+            adsk.core.ValueInput.createByReal(1.0 if invert_x else 0.0), "", False
+        )
+        cust_feat_input.addCustomParameter(
+            "invertY", "Invert Y",
+            adsk.core.ValueInput.createByReal(1.0 if invert_y else 0.0), "", False
         )
 
         # Create the custom feature - this triggers the compute handler

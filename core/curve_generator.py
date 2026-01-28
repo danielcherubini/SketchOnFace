@@ -110,16 +110,17 @@ def _create_spline_geometry(points, is_closed):
         return None
 
 
-def generate(mapped_sequences, app):
+def generate(mapped_sequences, app, existing_sketch=None):
     """
     Generate 3D sketch curves from mapped point sequences.
 
     Args:
         mapped_sequences: List of 3D point sequences from coordinate mapper
         app: Fusion 360 application reference
+        existing_sketch: Optional existing sketch to update in place (preserves downstream references)
 
     Returns:
-        The created Sketch object containing the wrapped curves.
+        The created or updated Sketch object containing the wrapped curves.
 
     """
     design = adsk.fusion.Design.cast(app.activeProduct)
@@ -128,10 +129,16 @@ def generate(mapped_sequences, app):
 
     root_comp = design.rootComponent
 
-    # Create a new sketch
-    # Using XY construction plane as base (sketch will contain 3D curves)
-    sketch = root_comp.sketches.add(root_comp.xYConstructionPlane)
-    sketch.name = "WrappedSketch"
+    if existing_sketch:
+        # Update existing sketch in place to preserve downstream references
+        sketch = existing_sketch
+        _clear_sketch(sketch)
+    else:
+        # Create a new sketch
+        # Using XY construction plane as base (sketch will contain 3D curves)
+        sketch = root_comp.sketches.add(root_comp.xYConstructionPlane)
+        sketch.name = "WrappedSketch"
+
     sketch.isComputeDeferred = True  # Defer recompute for performance
 
     try:
@@ -153,6 +160,32 @@ def generate(mapped_sequences, app):
         sketch.isComputeDeferred = False  # Re-enable compute
 
     return sketch
+
+
+def _clear_sketch(sketch):
+    """
+    Clear all geometry from a sketch while preserving the sketch itself.
+    This allows updating a sketch in place to maintain downstream references.
+    """
+    # Delete all sketch curves (lines, arcs, splines, etc.)
+    # Must iterate in reverse since we're deleting
+    curves = sketch.sketchCurves
+    for i in range(curves.count - 1, -1, -1):
+        try:
+            curves.item(i).deleteMe()
+        except Exception:
+            pass  # Some curves may be constrained or already deleted
+
+    # Delete all sketch points (except origin-related points which can't be deleted)
+    points = sketch.sketchPoints
+    for i in range(points.count - 1, -1, -1):
+        try:
+            point = points.item(i)
+            # Skip the origin point
+            if not point.isFixed:
+                point.deleteMe()
+        except Exception:
+            pass  # Some points may be constrained or already deleted
 
 
 def _create_point(sketch, point):
