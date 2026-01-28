@@ -59,8 +59,8 @@ def run(context):
             compute_handler = ComputeHandler()
             _custom_feature_def.customFeatureCompute.add(compute_handler)
             handlers.append(compute_handler)
-        except Exception as e:
-            print(f"SketchOnFace: Failed to register compute handler: {e}")
+        except Exception:
+            pass  # Compute handler registration is optional
 
         # Start the main wrap command
         wrap_command.start(app, ui, _custom_feature_def)

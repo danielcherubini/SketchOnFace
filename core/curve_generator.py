@@ -103,10 +103,7 @@ def _create_spline_geometry(points, is_closed):
         # Create NURBS curve using createNonRational
         nurbs_curve = adsk.core.NurbsCurve3D.createNonRational(control_points, degree, knots, is_closed)
         return nurbs_curve
-    except Exception as e:
-        print(f"SketchOnFace: Failed to create spline geometry: {e}")
-        import traceback
-        print(traceback.format_exc())
+    except Exception:
         return None
 
 

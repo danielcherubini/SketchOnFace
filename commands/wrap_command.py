@@ -5,20 +5,12 @@ import traceback
 import adsk.core
 import adsk.fusion
 
-print("SketchOnFace: Loading wrap_command module...")
-
-try:
-    from ..core import (
-        coordinate_mapper,
-        curve_generator,
-        sketch_parser,
-        surface_analyzer,
-    )
-
-    print("SketchOnFace: Core modules imported successfully")
-except Exception as e:
-    print(f"SketchOnFace: Failed to import core modules: {e}")
-    print(traceback.format_exc())
+from ..core import (
+    coordinate_mapper,
+    curve_generator,
+    sketch_parser,
+    surface_analyzer,
+)
 
 # Command identity
 COMMAND_ID = "SketchOnFaceCommand"
@@ -159,9 +151,8 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             if _preview_sketch:
                 try:
                     _preview_sketch.deleteMe()
-                except Exception as e:
-                    print(f"SketchOnFace: Failed to delete preview sketch: {e}")
-                    # Continue execution - preview cleanup failure is non-critical
+                except Exception:
+                    pass  # Preview cleanup failure is non-critical
                 _preview_sketch = None
 
             cmd = args.command
@@ -231,9 +222,8 @@ class PreviewHandler(adsk.core.CommandEventHandler):
             if _preview_sketch:
                 try:
                     _preview_sketch.deleteMe()
-                except Exception as e:
-                    print(f"SketchOnFace: Failed to delete preview sketch: {e}")
-                    # Continue execution - preview cleanup failure is non-critical
+                except Exception:
+                    pass  # Preview cleanup failure is non-critical
                 _preview_sketch = None
 
             cmd = args.command
@@ -286,8 +276,7 @@ class PreviewHandler(adsk.core.CommandEventHandler):
             # The preview geometry is visible but won't be "committed" by Fusion
             args.isValidResult = False
 
-        except Exception as e:
-            print(f"SketchOnFace: Preview handler error: {e}")
+        except Exception:
             args.isValidResult = False
 
 
@@ -310,8 +299,7 @@ class ValidateInputsHandler(adsk.core.ValidateInputsEventHandler):
                 face_input.selectionCount == 1 and sketch_input.selectionCount >= 1
             )
 
-        except Exception as e:
-            print(f"SketchOnFace: Input validation failed: {e}")
+        except Exception:
             args.areInputsValid = False
 
 

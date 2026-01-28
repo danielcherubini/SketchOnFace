@@ -2,12 +2,13 @@
     "autodeskProduct": "Fusion360",
     "type": "addin",
     "id": "SketchOnFace",
-    "author": "Daniel",
+    "author": "Daniel Cherubini",
     "description": {
         "": "Wrap 2D sketch curves onto arbitrary 3D surfaces using arc-length parameterization."
     },
-    "version": "0.1.0",
+    "version": "1.0.0",
     "runOnStartup": false,
     "supportedOS": "windows|mac",
-    "editEnabled": true
+    "editEnabled": true,
+    "iconFilename": "sketch-on-face-logo.png"
 }

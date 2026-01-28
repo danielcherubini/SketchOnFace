@@ -5,8 +5,6 @@ import traceback
 import adsk.core
 import adsk.fusion
 
-from ..core import logger
-
 # Command identity
 COMMAND_ID = "SketchOnFaceEditCommand"
 COMMAND_NAME = "Edit Sketch On Face"
@@ -60,10 +58,9 @@ def _get_parameter_value(cust_feature, param_name, default_value):
             # Parameters store values in internal units (cm)
             # Just return directly - no conversion needed
             return param.value
-    except Exception as e:
+    except Exception:
         # Parameter doesn't exist or can't be accessed
-        from ..core import logger
-        logger.log(f"SketchOnFace Edit: Failed to get parameter '{param_name}': {e}")
+        pass
 
     # Use default if neither exists
     return default_value
@@ -131,14 +128,10 @@ class EditCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 # Fall back to legacy "offset" parameter name for features created before v1.1
                 current_offset_normal = _get_parameter_value(_edited_feature, "offset", 0.0)
 
-            logger.log(f"SketchOnFace Edit: Read from storage - current_offset_normal={current_offset_normal} cm")
-
             # IMPORTANT: Values are stored in internal units (cm).
             # For spinner with units="mm", the initial value is in DISPLAY units (mm).
             # So we need to convert cm → mm for display.
             current_offset_normal_mm = current_offset_normal * 10.0
-
-            logger.log(f"SketchOnFace Edit: Will display value - {current_offset_normal} cm = {current_offset_normal_mm} mm")
 
             # Get invert parameters (stored as 1.0/0.0 for true/false)
             current_invert_x = _get_parameter_value(_edited_feature, "invertX", 0.0) > 0.5
@@ -170,15 +163,12 @@ class EditCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             # Surface normal offset
             # Use units="mm" to match the initial creation spinner
             # Pass the value in DISPLAY units (mm) - Fusion expects this!
-            logger.log(f"SketchOnFace Edit: About to create spinner with value={current_offset_normal_mm} mm")
             try:
                 offset_normal_input = inputs.addFloatSpinnerCommandInput(
                     INPUT_OFFSET_NORMAL, "Surface Offset", "mm", -100.0, 100.0, 0.1,
                     current_offset_normal_mm
                 )
-                logger.log(f"SketchOnFace Edit: Spinner created successfully")
-            except Exception as e:
-                logger.log(f"SketchOnFace Edit: Failed to create spinner: {e}")
+            except Exception:
                 # Fallback: create without initial value
                 offset_normal_input = inputs.addFloatSpinnerCommandInput(
                     INPUT_OFFSET_NORMAL, "Surface Offset", "mm", -100.0, 100.0, 0.1, 0.0
@@ -189,7 +179,6 @@ class EditCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs.addBoolValueInput(INPUT_INVERT_Y, "Invert Y (Height Direction)", True, "", current_invert_y)
 
         except Exception as e:
-            logger.log(f"SketchOnFace Edit: Command creation failed: {e}\n{traceback.format_exc()}")
             if _ui:
                 _ui.messageBox(
                     f"Edit command created failed:\n{e}\n{traceback.format_exc()}"
@@ -268,8 +257,6 @@ class EditExecuteHandler(adsk.core.CommandEventHandler):
             invert_x = inputs.itemById(INPUT_INVERT_X).value
             invert_y = inputs.itemById(INPUT_INVERT_Y).value
 
-            logger.log(f"SketchOnFace Edit: Read from inputs - offsetNormal.value={offset_normal} cm, invertX={invert_x}, invertY={invert_y}")
-
             # Note: CustomFeature parameters are stored in attributes, not real parameters.
             # We update the attributes and force a recompute.
 
@@ -280,8 +267,6 @@ class EditExecuteHandler(adsk.core.CommandEventHandler):
 
             # Store new values in attributes (which the compute handler reads)
             attrs = _edited_feature.attributes
-
-            logger.log(f"SketchOnFace Edit: Storing scaleX={scale_x}, scaleY={scale_y}, offsetX={offset_x}, offsetY={offset_y}, offsetNormal={offset_normal}, invertX={invert_x}, invertY={invert_y}")
 
             # Update or create attribute values
             if attrs.itemByName("SketchOnFace", "scaleX"):
@@ -327,8 +312,6 @@ class EditExecuteHandler(adsk.core.CommandEventHandler):
             # Strategy: Update just ONE parameter to trigger the compute handler.
             # The compute handler reads ALL values from attributes (which we've already updated).
             # This ensures only a single recompute instead of one per parameter.
-            logger.log(f"SketchOnFace Edit: Triggering recompute by updating single parameter")
-
             try:
                 # Get the parameter collection
                 params = _edited_feature.parameters
@@ -339,12 +322,9 @@ class EditExecuteHandler(adsk.core.CommandEventHandler):
                 if param_scale_x:
                     # Changing the expression triggers the compute handler
                     param_scale_x.expression = str(scale_x)
-                    logger.log(f"SketchOnFace Edit: Updated scaleX parameter to trigger recompute")
 
-            except Exception as e:
-                logger.log(f"SketchOnFace Edit: Parameter update failed: {e}")
-                # If parameter update fails, try to force recompute another way
-                logger.log(f"SketchOnFace Edit: Will try to force recompute via timeline")
+            except Exception:
+                pass  # If parameter update fails, recompute may happen via timeline
 
             # Clear reference
             _edited_feature = None

@@ -16,22 +16,36 @@ A Fusion 360 add-in that wraps 2D sketch curves onto arbitrary 3D surfaces using
 
 ## Installation
 
-### Method 1: Direct Installation (Recommended)
+### Method 1: Copy to Add-Ins Folder (Recommended)
 
 1. **Download the add-in**
    - Click the green **Code** button on this repository
    - Select **Download ZIP**
-   - Extract the ZIP file to a location on your computer (e.g., `Documents/Fusion360/AddIns/`)
+   - Extract the ZIP file
 
-2. **Install in Fusion 360**
-   - Open Fusion 360
-   - Go to **Tools** → **Add-Ins** → **Scripts and Add-Ins** (or press `Shift + S`)
-   - Click the **Add-Ins** tab at the top
-   - Click the green **+** icon next to "My Add-Ins"
-   - Navigate to the extracted `SketchOnFace` folder and select it
-   - The add-in should now appear in your list
+2. **Copy to Fusion 360 Add-Ins folder**
+
+   **Windows:**
+   ```
+   %appdata%\Autodesk\Autodesk Fusion 360\API\AddIns
+   ```
+   (Paste this path into File Explorer's address bar)
+
+   **Mac:**
+   ```
+   ~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns
+   ```
+   (In Finder, press `Cmd+Shift+G` and paste the path)
+
+   **Mac (App Store version):**
+   ```
+   ~/Library/Containers/com.autodesk.mas.fusion360/Data/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns
+   ```
 
 3. **Run the add-in**
+   - Open Fusion 360
+   - Press `Shift + S` (or go to **UTILITIES** tab → **ADD-INS** panel → **Scripts and Add-Ins**)
+   - Click the **Add-Ins** tab at the top
    - Select **SketchOnFace** from the list
    - Click **Run**
    - The **Sketch On Face** button will appear in the **Add-Ins** panel
@@ -41,17 +55,24 @@ A Fusion 360 add-in that wraps 2D sketch curves onto arbitrary 3D surfaces using
 
 ### Method 2: Git Clone (For Development)
 
+**Windows:**
 ```bash
-cd ~/Documents/Fusion360/AddIns/
+cd %appdata%\Autodesk\Autodesk Fusion 360\API\AddIns
 git clone https://github.com/yourusername/SketchOnFace.git
 ```
 
-Then follow steps 2-4 from Method 1.
+**Mac:**
+```bash
+cd ~/Library/Application\ Support/Autodesk/Autodesk\ Fusion\ 360/API/AddIns
+git clone https://github.com/yourusername/SketchOnFace.git
+```
+
+Then follow steps 3-4 from Method 1.
 
 ### Troubleshooting Installation
 
-- **Add-in doesn't appear**: Make sure you selected the `SketchOnFace` folder itself, not a parent folder
-- **Errors on startup**: Check the **Text Commands** window (Tools → Text Commands) for error messages
+- **Add-in doesn't appear**: Make sure the folder is named `SketchOnFace` (remove `-main` or `-master` suffix if present)
+- **Errors on startup**: Check the **Text Commands** window (`View` → `Show Text Commands`) for error messages
 - **Button doesn't appear**: Try restarting Fusion 360 after installation
 
 ## Usage

@@ -5,7 +5,7 @@ import traceback
 import adsk.core
 import adsk.fusion
 
-from ..core import coordinate_mapper, curve_generator, logger, sketch_parser, surface_analyzer
+from ..core import coordinate_mapper, curve_generator, sketch_parser, surface_analyzer
 
 
 def _get_parameter_value(cust_feature, param_name, default_value):
@@ -35,9 +35,9 @@ def _get_parameter_value(cust_feature, param_name, default_value):
         param = params.itemById(param_name)
         if param:
             return param.value
-    except Exception as e:
+    except Exception:
         # Parameter doesn't exist or can't be accessed
-        logger.log(f"SketchOnFace: Failed to get parameter '{param_name}': {e}")
+        pass
 
     # Use default if neither exists
     return default_value
@@ -84,12 +84,10 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
                     if hasattr(curve, 'parentSketch') and curve.parentSketch:
                         sketch = curve.parentSketch
                         parent_sketches_dict[sketch.entityToken] = sketch
-                        logger.log(f"SketchOnFace Compute: Found parent sketch: {sketch.name}")
-                except Exception as e:
-                    logger.log(f"SketchOnFace Compute: Could not get parent sketch: {e}")
+                except Exception:
+                    pass
 
             parent_sketches = list(parent_sketches_dict.values())
-            logger.log(f"SketchOnFace Compute: Collected {len(parent_sketches)} parent sketches to hide")
 
             # Get optional reference edge
             ref_edge = None
@@ -117,8 +115,6 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
             # Get invert parameters (stored as 1.0/0.0 for true/false)
             invert_x = _get_parameter_value(cust_feature, "invertX", 0.0) > 0.5
             invert_y = _get_parameter_value(cust_feature, "invertY", 0.0) > 0.5
-
-            logger.log(f"SketchOnFace Compute: Retrieved scaleX={scale_x}, scaleY={scale_y}, offsetX={offset_x}, offsetY={offset_y}, offsetNormal={offset_normal}, invertX={invert_x}, invertY={invert_y}")
 
             # Analyze surface and generate new geometry
             design = adsk.fusion.Design.cast(app.activeProduct)
@@ -151,10 +147,8 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
                         entity = found_entities[0]
                         if entity.objectType == adsk.fusion.BaseFeature.classType():
                             base_feat = adsk.fusion.BaseFeature.cast(entity)
-                            logger.log(f"SketchOnFace Compute: Found existing BaseFeature to reuse")
-                except Exception as e:
-                    logger.log(f"SketchOnFace Compute: Failed to find existing BaseFeature: {e}")
-                    # Continue - will create new one
+                except Exception:
+                    pass  # Will create new one
 
             # Find existing sketch to update in place (preserves downstream references)
             existing_sketch = None
@@ -166,16 +160,13 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
                         entity = found_entities[0]
                         if entity.objectType == adsk.fusion.Sketch.classType():
                             existing_sketch = adsk.fusion.Sketch.cast(entity)
-                            logger.log(f"SketchOnFace Compute: Found existing sketch to update in place")
-                except Exception as e:
-                    logger.log(f"SketchOnFace Compute: Failed to find existing sketch: {e}")
-                    # Continue - will create new one
+                except Exception:
+                    pass  # Will create new one
 
             # Create or reuse base feature
             if not base_feat:
                 base_feats = root_comp.features.baseFeatures
                 base_feat = base_feats.add()
-                logger.log(f"SketchOnFace Compute: Created new BaseFeature")
 
             if base_feat:
                 base_feat.startEdit()
@@ -190,7 +181,6 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
                                 attr.value = new_sketch.entityToken
                             else:
                                 cust_feature.attributes.add("SketchOnFace", "sketchToken", new_sketch.entityToken)
-                        logger.log(f"SketchOnFace Compute: {'Updated' if existing_sketch else 'Created'} sketch with {new_sketch.sketchCurves.count} curves")
                 finally:
                     base_feat.finishEdit()
 
@@ -207,19 +197,15 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
 
                         if base_timeline and feat_timeline:
                             timeline.timelineGroups.add(feat_timeline.index, base_timeline.index)
-                            logger.log(f"SketchOnFace Compute: Created timeline group")
-                    except Exception as e:
-                        logger.log(f"SketchOnFace Compute: Failed to group timeline features: {e}")
-                        # Timeline grouping is optional UI enhancement - safe to continue
+                    except Exception:
+                        pass  # Timeline grouping is optional UI enhancement
 
             # Hide parent sketches (Fusion UX pattern: hide source sketch after wrapping)
             for sketch in parent_sketches:
                 try:
                     sketch.isVisible = False
-                    logger.log(f"SketchOnFace Compute: Hid source sketch: {sketch.name}")
-                except Exception as e:
-                    logger.log(f"SketchOnFace Compute: Failed to hide sketch: {e}")
-                    # Hiding is optional UI enhancement - safe to continue
+                except Exception:
+                    pass  # Hiding is optional UI enhancement
 
         except Exception as e:
             ui.messageBox(f"ComputeHandler failed:\n{e}\n{traceback.format_exc()}")
