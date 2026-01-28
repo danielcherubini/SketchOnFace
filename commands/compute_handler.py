@@ -81,7 +81,7 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
             parent_sketches_dict = {}
             for curve in sketch_curves:
                 try:
-                    if hasattr(curve, 'parentSketch') and curve.parentSketch:
+                    if hasattr(curve, "parentSketch") and curve.parentSketch:
                         sketch = curve.parentSketch
                         parent_sketches_dict[sketch.entityToken] = sketch
                 except Exception:
@@ -132,13 +132,22 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
 
             point_sequences = sketch_parser.parse(sketch_curves)
             mapped_sequences = coordinate_mapper.map_to_surface(
-                point_sequences, surface_info, scale_x, scale_y,
-                offset_x, offset_y, offset_normal, invert_x, invert_y
+                point_sequences,
+                surface_info,
+                scale_x,
+                scale_y,
+                offset_x,
+                offset_y,
+                offset_normal,
+                invert_x,
+                invert_y,
             )
 
             # Try to find existing BaseFeature to reuse (prevents timeline duplication during edits)
             base_feat = None
-            base_feat_token = cust_feature.attributes.itemByName("SketchOnFace", "baseFeatureToken")
+            base_feat_token = cust_feature.attributes.itemByName(
+                "SketchOnFace", "baseFeatureToken"
+            )
 
             if base_feat_token:
                 try:
@@ -152,7 +161,9 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
 
             # Find existing sketch to update in place (preserves downstream references)
             existing_sketch = None
-            old_sketch_token = cust_feature.attributes.itemByName("SketchOnFace", "sketchToken")
+            old_sketch_token = cust_feature.attributes.itemByName(
+                "SketchOnFace", "sketchToken"
+            )
             if old_sketch_token:
                 try:
                     found_entities = design.findEntityByToken(old_sketch_token.value)
@@ -172,21 +183,31 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
                 base_feat.startEdit()
                 try:
                     # Update existing sketch in place or create new one
-                    new_sketch = curve_generator.generate(mapped_sequences, app, existing_sketch)
+                    new_sketch = curve_generator.generate(
+                        mapped_sequences, app, existing_sketch
+                    )
                     if new_sketch:
                         # Store sketch token (only needed if we created a new sketch)
                         if not existing_sketch:
-                            attr = cust_feature.attributes.itemByName("SketchOnFace", "sketchToken")
+                            attr = cust_feature.attributes.itemByName(
+                                "SketchOnFace", "sketchToken"
+                            )
                             if attr:
                                 attr.value = new_sketch.entityToken
                             else:
-                                cust_feature.attributes.add("SketchOnFace", "sketchToken", new_sketch.entityToken)
+                                cust_feature.attributes.add(
+                                    "SketchOnFace",
+                                    "sketchToken",
+                                    new_sketch.entityToken,
+                                )
                 finally:
                     base_feat.finishEdit()
 
                 # Store base feature token (if newly created)
                 if not base_feat_token:
-                    cust_feature.attributes.add("SketchOnFace", "baseFeatureToken", base_feat.entityToken)
+                    cust_feature.attributes.add(
+                        "SketchOnFace", "baseFeatureToken", base_feat.entityToken
+                    )
 
                 # Group base feature with custom feature (only on initial creation)
                 if not base_feat_token:
@@ -196,7 +217,9 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
                         feat_timeline = cust_feature.timelineObject
 
                         if base_timeline and feat_timeline:
-                            timeline.timelineGroups.add(feat_timeline.index, base_timeline.index)
+                            timeline.timelineGroups.add(
+                                feat_timeline.index, base_timeline.index
+                            )
                     except Exception:
                         pass  # Timeline grouping is optional UI enhancement
 

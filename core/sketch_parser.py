@@ -35,7 +35,7 @@ def parse(sketch_curves):
     for entity in sketch_curves:
         # Skip construction geometry
         try:
-            if hasattr(entity, 'isConstruction') and entity.isConstruction:
+            if hasattr(entity, "isConstruction") and entity.isConstruction:
                 continue
         except Exception:
             pass  # Some entities might not have isConstruction property

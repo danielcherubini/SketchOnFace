@@ -123,10 +123,14 @@ class EditCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             # BACKWARDS COMPATIBILITY: Prior to v1.1, the surface offset parameter was named "offset"
             # instead of "offsetNormal". We renamed it for clarity since "offset" is ambiguous.
             # Try the new name first, then fall back to the legacy name for old features.
-            current_offset_normal = _get_parameter_value(_edited_feature, "offsetNormal", 0.0)
+            current_offset_normal = _get_parameter_value(
+                _edited_feature, "offsetNormal", 0.0
+            )
             if current_offset_normal == 0.0:
                 # Fall back to legacy "offset" parameter name for features created before v1.1
-                current_offset_normal = _get_parameter_value(_edited_feature, "offset", 0.0)
+                current_offset_normal = _get_parameter_value(
+                    _edited_feature, "offset", 0.0
+                )
 
             # IMPORTANT: Values are stored in internal units (cm).
             # For spinner with units="mm", the initial value is in DISPLAY units (mm).
@@ -134,8 +138,12 @@ class EditCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             current_offset_normal_mm = current_offset_normal * 10.0
 
             # Get invert parameters (stored as 1.0/0.0 for true/false)
-            current_invert_x = _get_parameter_value(_edited_feature, "invertX", 0.0) > 0.5
-            current_invert_y = _get_parameter_value(_edited_feature, "invertY", 0.0) > 0.5
+            current_invert_x = (
+                _get_parameter_value(_edited_feature, "invertX", 0.0) > 0.5
+            )
+            current_invert_y = (
+                _get_parameter_value(_edited_feature, "invertY", 0.0) > 0.5
+            )
 
             # === UI INPUTS ===
             # Note: Face/curves/edge cannot be changed after creation - only parameters
@@ -165,8 +173,13 @@ class EditCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             # Pass the value in DISPLAY units (mm) - Fusion expects this!
             try:
                 offset_normal_input = inputs.addFloatSpinnerCommandInput(
-                    INPUT_OFFSET_NORMAL, "Surface Offset", "mm", -100.0, 100.0, 0.1,
-                    current_offset_normal_mm
+                    INPUT_OFFSET_NORMAL,
+                    "Surface Offset",
+                    "mm",
+                    -100.0,
+                    100.0,
+                    0.1,
+                    current_offset_normal_mm,
                 )
             except Exception:
                 # Fallback: create without initial value
@@ -175,8 +188,16 @@ class EditCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 )
 
             # Invert options for orientation control
-            inputs.addBoolValueInput(INPUT_INVERT_X, "Invert X (Wrap Direction)", True, "", current_invert_x)
-            inputs.addBoolValueInput(INPUT_INVERT_Y, "Invert Y (Height Direction)", True, "", current_invert_y)
+            inputs.addBoolValueInput(
+                INPUT_INVERT_X, "Invert X (Wrap Direction)", True, "", current_invert_x
+            )
+            inputs.addBoolValueInput(
+                INPUT_INVERT_Y,
+                "Invert Y (Height Direction)",
+                True,
+                "",
+                current_invert_y,
+            )
 
         except Exception as e:
             if _ui:
@@ -290,7 +311,9 @@ class EditExecuteHandler(adsk.core.CommandEventHandler):
                 attrs.add("SketchOnFace", "offsetY", str(offset_y))
 
             if attrs.itemByName("SketchOnFace", "offsetNormal"):
-                attrs.itemByName("SketchOnFace", "offsetNormal").value = str(offset_normal)
+                attrs.itemByName("SketchOnFace", "offsetNormal").value = str(
+                    offset_normal
+                )
             else:
                 attrs.add("SketchOnFace", "offsetNormal", str(offset_normal))
 
@@ -334,7 +357,9 @@ class EditExecuteHandler(adsk.core.CommandEventHandler):
                 _ui.messageBox(f"Edit execution failed:\n{e}\n{traceback.format_exc()}")
 
 
-def start(app: adsk.core.Application, ui: adsk.core.UserInterface, custom_feature_def=None):
+def start(
+    app: adsk.core.Application, ui: adsk.core.UserInterface, custom_feature_def=None
+):
     """Register the edit command with Fusion 360."""
     global _app, _ui, _custom_feature_def
     _app = app
@@ -356,7 +381,9 @@ def start(app: adsk.core.Application, ui: adsk.core.UserInterface, custom_featur
 
     except Exception as e:
         if ui:
-            ui.messageBox(f"Failed to start edit command:\n{e}\n{traceback.format_exc()}")
+            ui.messageBox(
+                f"Failed to start edit command:\n{e}\n{traceback.format_exc()}"
+            )
 
 
 def stop(ui: adsk.core.UserInterface):
@@ -374,4 +401,6 @@ def stop(ui: adsk.core.UserInterface):
 
     except Exception as e:
         if ui:
-            ui.messageBox(f"Failed to stop edit command:\n{e}\n{traceback.format_exc()}")
+            ui.messageBox(
+                f"Failed to stop edit command:\n{e}\n{traceback.format_exc()}"
+            )

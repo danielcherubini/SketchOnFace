@@ -20,9 +20,16 @@ class MappedSequence:
 
 
 def map_to_surface(
-    point_sequences, surface_info, scale_x=1.0, scale_y=1.0,
-    offset_x=0.0, offset_y=0.0, offset_normal=0.0,
-    invert_x=False, invert_y=False, debug_ui=None
+    point_sequences,
+    surface_info,
+    scale_x=1.0,
+    scale_y=1.0,
+    offset_x=0.0,
+    offset_y=0.0,
+    offset_normal=0.0,
+    invert_x=False,
+    invert_y=False,
+    debug_ui=None,
 ):
     """
     Map 2D point sequences onto a 3D surface.
@@ -73,7 +80,9 @@ def map_to_surface(
             # opposite to intuitive sketch Y direction (bottom-to-top vs top-to-bottom)
             if invert_x:
                 x_normalized = 1.0 - x_normalized
-            if not invert_y:  # Invert Y by default; checking "Invert Y" restores original orientation
+            if (
+                not invert_y
+            ):  # Invert Y by default; checking "Invert Y" restores original orientation
                 y_normalized = 1.0 - y_normalized
 
             # Scale affects how much of the surface the sketch covers
@@ -149,7 +158,14 @@ def _fix_seam_discontinuity(wrap_param, prev_wrap_param, wrap_range):
 
 
 def _map_point(
-    x, y, surface_info, total_width, total_height, offset, prev_wrap_param, debug_ui=None
+    x,
+    y,
+    surface_info,
+    total_width,
+    total_height,
+    offset,
+    prev_wrap_param,
+    debug_ui=None,
 ):
     """
     Map a single 2D point to 3D surface coordinates.

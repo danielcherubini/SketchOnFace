@@ -8,6 +8,7 @@ description = "Fusion 360 add-in that wraps 2D sketch curves onto arbitrary 3D s
 dev = [
     "adsk>=2.0.12157",
     "ruff>=0.9.10",
+    "pytest>=8.0.0",
 ]
 
 [tool.ruff]
@@ -70,4 +71,9 @@ fixable = ["ALL"]
 max-complexity = 25
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*.py" = ["S101"]
+"tests/*.py" = ["S101", "D105", "D213", "D413", "N802", "FBT002"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]

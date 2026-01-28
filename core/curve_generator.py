@@ -101,7 +101,9 @@ def _create_spline_geometry(points, is_closed):
                 knots.append((i - degree) / (num_knots - 2 * degree - 1))
 
         # Create NURBS curve using createNonRational
-        nurbs_curve = adsk.core.NurbsCurve3D.createNonRational(control_points, degree, knots, is_closed)
+        nurbs_curve = adsk.core.NurbsCurve3D.createNonRational(
+            control_points, degree, knots, is_closed
+        )
         return nurbs_curve
     except Exception:
         return None

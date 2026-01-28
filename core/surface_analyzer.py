@@ -4,7 +4,9 @@ import adsk.core
 import adsk.fusion
 
 # Surface height calculation sampling resolution
-DEFAULT_HEIGHT_SAMPLES = 10  # Number of samples along V direction for height calculation
+DEFAULT_HEIGHT_SAMPLES = (
+    10  # Number of samples along V direction for height calculation
+)
 
 
 class SurfaceInfo:
@@ -113,7 +115,9 @@ def _find_longest_edge(face):
     return longest_edge
 
 
-def _calculate_surface_height(evaluator, u, v_min, v_max, samples=DEFAULT_HEIGHT_SAMPLES):
+def _calculate_surface_height(
+    evaluator, u, v_min, v_max, samples=DEFAULT_HEIGHT_SAMPLES
+):
     """
     Calculate physical height of surface along V direction.
     Uses sampling to handle curved surfaces.
