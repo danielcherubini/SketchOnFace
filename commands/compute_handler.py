@@ -56,12 +56,24 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
         try:
             cust_feature = args.customFeature
 
-            # Retrieve dependencies
-            face_dep = cust_feature.dependencies.itemById("face")
-            if not face_dep or not face_dep.entity:
-                return
+            # Retrieve dependencies - support multiple faces
+            faces = []
+            i = 0
+            while True:
+                face_dep = cust_feature.dependencies.itemById(f"face_{i}")
+                if not face_dep or not face_dep.entity:
+                    break
+                faces.append(face_dep.entity)
+                i += 1
 
-            face = face_dep.entity
+            # Backward compatibility: try single "face" dependency
+            if not faces:
+                face_dep = cust_feature.dependencies.itemById("face")
+                if face_dep and face_dep.entity:
+                    faces.append(face_dep.entity)
+
+            if not faces:
+                return
 
             # Collect source curves from dependencies
             sketch_curves = []
@@ -121,10 +133,15 @@ class ComputeHandler(adsk.fusion.CustomFeatureEventHandler):
             root_comp = design.rootComponent
 
             try:
-                surface_info = surface_analyzer.analyze(face, ref_edge)
+                if len(faces) == 1:
+                    surface_info = surface_analyzer.analyze(faces[0], ref_edge)
+                else:
+                    # ref_edge applies to first face only
+                    ref_edge_map = {faces[0]: ref_edge} if ref_edge else None
+                    surface_info = surface_analyzer.build_face_chain(faces, ref_edge_map)
             except Exception as e:
                 ui.messageBox(
-                    f"Failed to analyze surface. The face may have been deleted or modified.\n\n"
+                    f"Failed to analyze surface. The face(s) may have been deleted or modified.\n\n"
                     f"Error: {e}\n\n"
                     f"Try deleting and recreating the SketchOnFace feature."
                 )

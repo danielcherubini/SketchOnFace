@@ -157,7 +157,7 @@ def _fix_seam_discontinuity(wrap_param, prev_wrap_param, wrap_range):
     return wrap_param
 
 
-def _map_point(
+def _map_point_single_face(
     x,
     y,
     surface_info,
@@ -168,7 +168,7 @@ def _map_point(
     debug_ui=None,
 ):
     """
-    Map a single 2D point to 3D surface coordinates.
+    Map a single 2D point to 3D surface coordinates for a single face.
 
     Uses arc-length parameterization along the reference edge for X (wrap direction),
     and linear mapping for Y (height direction).
@@ -279,3 +279,100 @@ def _map_point(
             )
 
     return point_3d, current_wrap_param
+
+
+def _map_point_multi_face(
+    x,
+    y,
+    multi_face_info,
+    total_width,
+    total_height,
+    offset,
+    prev_wrap_param,
+    debug_ui=None,
+):
+    """
+    Map a single 2D point to 3D surface coordinates for multi-face chain.
+
+    Determines which face segment the point falls on based on arc-length position,
+    then delegates to single-face mapping with local coordinates.
+
+    Returns:
+        Tuple of (Point3D, wrap_param) where wrap_param is used to detect seam crossings.
+    """
+    # Calculate target arc length in concatenated space
+    if total_width > 0:
+        arc_length = (x / total_width) * multi_face_info.total_arc_length
+    else:
+        arc_length = 0.0
+
+    # Clamp to valid range
+    arc_length = max(0.0, min(arc_length, multi_face_info.total_arc_length))
+
+    # Find which face segment this arc_length falls into
+    target_segment = None
+    for segment in multi_face_info.face_segments:
+        if segment.arc_length_start <= arc_length <= segment.arc_length_end:
+            target_segment = segment
+            break
+
+    if not target_segment:
+        # Shouldn't happen due to clamping, but fallback to first segment
+        target_segment = multi_face_info.face_segments[0]
+
+    # Convert to local coordinates within this face
+    local_arc_length = arc_length - target_segment.arc_length_start
+    local_x = (
+        local_arc_length / target_segment.surface_info.ref_edge_length
+        if target_segment.surface_info.ref_edge_length > 0
+        else 0.0
+    )
+
+    # Normalize Y coordinate using multi-face total height
+    # This ensures Y=0 and Y=1 are consistent across all faces
+    local_y = (
+        y * (multi_face_info.total_height / target_segment.surface_info.surface_height)
+        if target_segment.surface_info.surface_height > 0
+        else y
+    )
+
+    # Delegate to single-face mapping with local coordinates
+    return _map_point_single_face(
+        local_x,
+        local_y,
+        target_segment.surface_info,
+        1.0,  # Normalized total width for single face
+        1.0,  # Normalized total height for single face
+        offset,
+        prev_wrap_param,
+        debug_ui,
+    )
+
+
+def _map_point(
+    x,
+    y,
+    surface_info,
+    total_width,
+    total_height,
+    offset,
+    prev_wrap_param,
+    debug_ui=None,
+):
+    """
+    Map a single 2D point to 3D surface coordinates.
+
+    Dispatches to single-face or multi-face mapping based on surface_info type.
+
+    Returns:
+        Tuple of (Point3D, wrap_param) where wrap_param is used to detect seam crossings.
+    """
+    # Dispatch based on surface type
+    if hasattr(surface_info, 'is_multi_face') and surface_info.is_multi_face:
+        return _map_point_multi_face(
+            x, y, surface_info, total_width, total_height, offset, prev_wrap_param, debug_ui
+        )
+    else:
+        return _map_point_single_face(
+            x, y, surface_info, total_width, total_height, offset, prev_wrap_param, debug_ui
+        )

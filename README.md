@@ -9,6 +9,7 @@ A Fusion 360 add-in that wraps 2D sketch curves onto arbitrary 3D surfaces using
 ## Features
 
 - **Works with any surface** - Not limited to cylinders. Supports ovals, ellipses, cones, and freeform surfaces.
+- **Multi-face wrapping** - Wrap patterns continuously across multiple connected faces (e.g., around all sides of a rounded rectangle).
 - **Arc-length parameterization** - Preserves proportions when wrapping onto non-uniform curves like ovals.
 - **Auto-detect or manual edge selection** - Automatically finds the longest edge for wrap direction, or select one manually.
 - **Scale and offset controls** - Adjust X/Y scale and surface offset distance.
@@ -77,6 +78,7 @@ Then follow steps 3-4 from Method 1.
 
 ## Usage
 
+### Single Face Wrapping
 1. Create a 2D sketch with your curves on any plane
 2. Create or select a 3D body with the target surface
 3. Run the **Sketch On Face** command from the Add-Ins panel
@@ -85,6 +87,19 @@ Then follow steps 3-4 from Method 1.
 6. (Optional) Select a reference edge to control wrap direction
 7. Adjust scale and offset as needed
 8. Click OK
+
+### Multi-Face Wrapping
+1. Create a 2D sketch with your pattern (e.g., repeating bars or text)
+2. Create a body with multiple connected faces (e.g., rounded rectangle extrusion)
+3. Run the **Sketch On Face** command
+4. Select **multiple connected faces** (e.g., all 4 vertical sides)
+5. Select the sketch curves to wrap
+6. The pattern will wrap continuously across all selected faces
+7. Click OK
+
+**Note:** For multi-face wrapping, selected faces must:
+- Share edges with at least one other selected face (must be connected)
+- Form a simple chain or closed loop (no T-junctions or branches)
 
 ## How It Works
 
@@ -110,9 +125,35 @@ This approach ensures that a horizontal line wraps evenly around an oval, with e
 
 ## Limitations
 
-- **Single face only** - V1 supports wrapping to a single face. Multi-face wrapping planned for future.
+- **Face connectivity** - For multi-face wrapping, faces must form a simple chain or loop (no branches or T-junctions).
 - **Orientation** - May need to experiment with reference edge selection for correct wrap direction.
 - **Non-developable surfaces** - Some distortion is expected on doubly-curved surfaces (spheres, etc.)
+
+## Development
+
+### Setup
+
+This project uses [uv](https://github.com/astral-sh/uv) for dependency management and a Makefile for common tasks.
+
+```bash
+# Install dependencies
+make install
+
+# Run tests
+make test
+
+# Run linter
+make lint
+
+# Format code
+make format
+
+# Run all checks (lint + test)
+make check
+
+# Show all available commands
+make help
+```
 
 ## Acknowledgments
 

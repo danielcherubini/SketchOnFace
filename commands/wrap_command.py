@@ -40,6 +40,45 @@ _custom_feature_def = None
 _preview_sketch = None  # Track preview sketch for cleanup
 
 
+def _validate_face_connectivity(faces):
+    """
+    Validate that faces are connected and form a valid chain.
+
+    Returns:
+        True if faces form a valid chain/loop, False otherwise
+    """
+    if len(faces) <= 1:
+        return True
+
+    # Build adjacency graph
+    adjacency = {face.entityToken: [] for face in faces}
+
+    for i, face1 in enumerate(faces):
+        for face2 in faces[i+1:]:
+            # Check if faces share an edge
+            shared = False
+            for edge1 in face1.edges:
+                for edge2 in face2.edges:
+                    if edge1.entityToken == edge2.entityToken:
+                        shared = True
+                        break
+                if shared:
+                    break
+
+            if shared:
+                adjacency[face1.entityToken].append(face2.entityToken)
+                adjacency[face2.entityToken].append(face1.entityToken)
+
+    # Check connectivity
+    for token, neighbors in adjacency.items():
+        if len(neighbors) == 0:
+            return False  # Isolated face
+        if len(neighbors) > 2:
+            return False  # Branch topology
+
+    return True
+
+
 class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
     """Handles command creation - builds the UI."""
 
@@ -74,12 +113,12 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
             # === UI INPUTS ===
 
-            # Face selection (required)
+            # Face selection (required - can select multiple connected faces)
             face_input = inputs.addSelectionInput(
-                INPUT_FACE, "Target Face", "Select the face to wrap sketch onto"
+                INPUT_FACE, "Target Face(s)", "Select face(s) to wrap sketch onto"
             )
             face_input.addSelectionFilter("Faces")
-            face_input.setSelectionLimits(1, 1)
+            face_input.setSelectionLimits(1, 0)  # 1 minimum, unlimited maximum
 
             # Sketch curve selection (required)
             sketch_input = inputs.addSelectionInput(
@@ -177,7 +216,20 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             invert_y_input = inputs.itemById(INPUT_INVERT_Y)
 
             # Extract selected entities
-            face = face_input.selection(0).entity
+            faces = []
+            for i in range(face_input.selectionCount):
+                faces.append(face_input.selection(i).entity)
+
+            # Validate connectivity if multiple faces
+            if len(faces) > 1:
+                if not _validate_face_connectivity(faces):
+                    _ui.messageBox(
+                        "Selected faces are not properly connected.\n\n"
+                        "Please ensure:\n"
+                        "- All faces share edges with at least one other selected face\n"
+                        "- Faces form a simple chain or loop (no T-junctions)"
+                    )
+                    return
 
             sketch_curves = []
             for i in range(sketch_input.selectionCount):
@@ -198,7 +250,7 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             # Create CustomFeature - the compute handler will create the sketch
             if _custom_feature_def:
                 _create_custom_feature(
-                    face,
+                    faces,
                     sketch_curves,
                     ref_edge,
                     scale_x,
@@ -211,7 +263,13 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
                 )
             else:
                 # Fallback if CustomFeature not available - create sketch directly
-                surface_info = surface_analyzer.analyze(face, ref_edge)
+                if len(faces) == 1:
+                    surface_info = surface_analyzer.analyze(faces[0], ref_edge)
+                else:
+                    # ref_edge applies to first face only
+                    ref_edge_map = {faces[0]: ref_edge} if ref_edge else None
+                    surface_info = surface_analyzer.build_face_chain(faces, ref_edge_map)
+
                 point_sequences = sketch_parser.parse(sketch_curves)
                 mapped_sequences = coordinate_mapper.map_to_surface(
                     point_sequences,
@@ -266,7 +324,9 @@ class PreviewHandler(adsk.core.CommandEventHandler):
                 args.isValidResult = False
                 return
 
-            face = face_input.selection(0).entity
+            faces = []
+            for i in range(face_input.selectionCount):
+                faces.append(face_input.selection(i).entity)
 
             sketch_curves = []
             for i in range(sketch_input.selectionCount):
@@ -285,7 +345,12 @@ class PreviewHandler(adsk.core.CommandEventHandler):
             invert_y = invert_y_input.value
 
             # Create preview geometry
-            surface_info = surface_analyzer.analyze(face, ref_edge)
+            if len(faces) == 1:
+                surface_info = surface_analyzer.analyze(faces[0], ref_edge)
+            else:
+                # ref_edge applies to first face only
+                ref_edge_map = {faces[0]: ref_edge} if ref_edge else None
+                surface_info = surface_analyzer.build_face_chain(faces, ref_edge_map)
             point_sequences = sketch_parser.parse(sketch_curves)
             mapped_sequences = coordinate_mapper.map_to_surface(
                 point_sequences,
@@ -322,9 +387,9 @@ class ValidateInputsHandler(adsk.core.ValidateInputsEventHandler):
             face_input = inputs.itemById(INPUT_FACE)
             sketch_input = inputs.itemById(INPUT_SKETCH)
 
-            # Require at least face and one sketch curve
+            # Require at least one face and one sketch curve
             args.areInputsValid = (
-                face_input.selectionCount == 1 and sketch_input.selectionCount >= 1
+                face_input.selectionCount >= 1 and sketch_input.selectionCount >= 1
             )
 
         except Exception:
@@ -355,7 +420,7 @@ class CommandDestroyHandler(adsk.core.CommandEventHandler):
 
 
 def _create_custom_feature(
-    face,
+    faces,
     sketch_curves,
     ref_edge,
     scale_x,
@@ -380,7 +445,8 @@ def _create_custom_feature(
         )
 
         # Add dependencies (entities that trigger recompute when changed)
-        cust_feat_input.addDependency("face", face)
+        for i, face in enumerate(faces):
+            cust_feat_input.addDependency(f"face_{i}", face)
         for i, curve in enumerate(sketch_curves):
             cust_feat_input.addDependency(f"curve_{i}", curve)
         if ref_edge:
